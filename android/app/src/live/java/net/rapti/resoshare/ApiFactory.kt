@@ -38,7 +38,9 @@ object ApiFactory {
             .callTimeout(90, TimeUnit.SECONDS)
             .followRedirects(false)
             .followSslRedirects(false)
-            .retryOnConnectionFailure(true)
+            // Never silently re-send a request (a POST could create a duplicate order or
+            // trip refresh-token reuse detection); failures surface to the UI instead.
+            .retryOnConnectionFailure(false)
             .connectionSpecs(listOf(ConnectionSpec.RESTRICTED_TLS, ConnectionSpec.MODERN_TLS))
             .cache(null)
         val pins = BuildConfig.CERT_PINS.split(",").map { it.trim() }.filter { it.startsWith("sha256/") }
@@ -105,12 +107,18 @@ object ApiFactory {
                     net.rapti.resoshare.data.api.RefreshRequest(refresh),
                 )
                 val req = Request.Builder().url(baseUrl.resolve(path)!!).post(payload.toRequestBody(jsonType)).build()
-                val newTokens = runCatching {
-                    baseClient.newCall(req).execute().use { r ->
-                        if (!r.isSuccessful) null
-                        else AppJson.decodeFromString(net.rapti.resoshare.data.api.Tokens.serializer(), r.body!!.string())
+                // A network problem or a temporary server error must not end the session:
+                // throwing IOException fails this call with a NETWORK error and keeps the
+                // refresh token. Only an authoritative rejection (4xx) returns null → logout.
+                val newTokens = baseClient.newCall(req).execute().use { r ->
+                    when {
+                        r.isSuccessful -> runCatching {
+                            AppJson.decodeFromString(net.rapti.resoshare.data.api.Tokens.serializer(), r.body!!.string())
+                        }.getOrElse { throw java.io.IOException("bad refresh response") }
+                        r.code == 429 || r.code >= 500 -> throw java.io.IOException("refresh temporarily unavailable")
+                        else -> null
                     }
-                }.getOrNull() ?: return null
+                } ?: return null
                 tokens.set(newTokens.accessToken, newTokens.refreshToken)
                 return response.request.newBuilder()
                     .header("Authorization", "Bearer ${newTokens.accessToken}")

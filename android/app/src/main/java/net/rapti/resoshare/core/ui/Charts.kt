@@ -91,8 +91,33 @@ fun PriceLineChart(values: List<Long>, labels: List<String>, modifier: Modifier 
                 }
             }
         }
-        Row(Modifier.fillMaxWidth().padding(start = 64.dp, end = 8.dp)) {
-            labels.forEach { T(it, 11.sp, color = c.muted, modifier = Modifier.weight(1f), align = TextAlign.Center, maxLines = 1) }
+        AxisLabels(labels, Modifier.fillMaxWidth().padding(start = 64.dp, end = 8.dp, top = 2.dp))
+    }
+}
+
+/** X-axis labels centred under each data point; every other label when crowded (12 months). */
+@Composable
+private fun AxisLabels(labels: List<String>, modifier: Modifier) {
+    val c = Reso.colors
+    val crowded = labels.size > 8
+    androidx.compose.ui.layout.Layout(
+        content = {
+            labels.forEachIndexed { i, l ->
+                val show = !crowded || (labels.lastIndex - i) % 2 == 0
+                T(if (show) l else "", 11.sp, color = c.muted, maxLines = 1)
+            }
+        },
+        modifier = modifier,
+    ) { measurables, constraints ->
+        val placeables = measurables.map { it.measure(androidx.compose.ui.unit.Constraints()) }
+        val w = constraints.maxWidth
+        val h = placeables.maxOfOrNull { it.height } ?: 0
+        layout(w, h) {
+            val n = placeables.size
+            placeables.forEachIndexed { i, p ->
+                val cx = if (n == 1) w / 2 else w * i / (n - 1)
+                p.place((cx - p.width / 2).coerceIn(0, (w - p.width).coerceAtLeast(0)), 0)
+            }
         }
     }
 }
