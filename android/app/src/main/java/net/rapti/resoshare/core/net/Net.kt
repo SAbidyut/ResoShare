@@ -127,6 +127,7 @@ private fun englishFor(code: String, http: Int): String = when (code) {
     "PAYLOAD_TOO_LARGE" -> "File too large. Use an image under 5 MB."
     "LOCKED" -> "Too many failed attempts. Try again later."
     "TOO_MANY_REQUESTS" -> "Too many requests. Please wait a moment."
+    "SERVICE_UNAVAILABLE" -> "This service is not available on the server right now."
     else -> if (http >= 500) "Server problem. Please try again later." else "Something went wrong. Please try again."
 }
 

@@ -86,4 +86,10 @@ object ResoIcons {
     val Megaphone = line("mega", "M3 11v2a1 1 0 0 0 1 1h2l5 4V6L6 10H4a1 1 0 0 0-1 1z", "M15 9a3.5 3.5 0 0 1 0 6", "M18 6.5a7 7 0 0 1 0 11")
     val Pause = line("pause", circle(12f, 12f, 9f), "M10 9v6M14 9v6")
     val Play = line("play", circle(12f, 12f, 9f), "M10 8.5v7l5.5-3.5z")
+    val Mail = line("mail", rect(3f, 5f, 18f, 14f, 2f), "M3.5 7l8.5 6 8.5-6")
+    val IdCard = line("idcard", rect(3f, 5f, 18f, 14f, 2f), circle(9f, 11f, 2f), "M6 16c.6-1.4 1.7-2.2 3-2.2s2.4.8 3 2.2", "M14.5 10h4M14.5 13h3")
+    val Award = line("award", circle(12f, 9f, 5.5f), "M8.7 13.6L7.5 21l4.5-2.4 4.5 2.4-1.2-7.4")
+    val DoubleCheck = line("dcheck", "M2 12.5l4 4L14 8.5", "M10.5 16.2l.8.8L21 8.5")
+    val Target = line("target", circle(12f, 12f, 9f), circle(12f, 12f, 5f), circle(12f, 12f, 1f))
+    val Globe = line("globe", circle(12f, 12f, 9f), "M3 12h18", "M12 3c2.5 2.6 3.8 5.6 3.8 9s-1.3 6.4-3.8 9c-2.5-2.6-3.8-5.6-3.8-9S9.5 5.6 12 3z")
 }

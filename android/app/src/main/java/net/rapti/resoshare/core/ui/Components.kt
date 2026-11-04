@@ -20,7 +20,13 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsFocusedAsState
 import androidx.compose.foundation.interaction.collectIsPressedAsState
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.isImeVisible
+import androidx.compose.foundation.relocation.BringIntoViewRequester
+import androidx.compose.foundation.relocation.bringIntoViewRequester
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
@@ -326,7 +332,7 @@ fun PrimaryButton(
             .fillMaxWidth()
             .height(height)
             .clip(shape)
-            .background(if (enabled) Brand.Amber else Brand.Amber.copy(alpha = 0.45f))
+            .background(if (enabled) Brand.Amber else Reso.colors.track)
             .pressable(enabled = active, onClick = onClick),
         horizontalArrangement = Arrangement.Center,
         verticalAlignment = Alignment.CenterVertically,
@@ -338,7 +344,7 @@ fun PrimaryButton(
                 Icon(icon, null, tint = Brand.Navy, modifier = Modifier.size(22.dp))
                 Spacer(Modifier.width(8.dp))
             }
-            T(text, 17.sp, FontWeight.Bold, Brand.Navy.copy(alpha = if (enabled) 1f else 0.6f), maxLines = 1)
+            T(text, 17.sp, FontWeight.Bold, if (enabled) Brand.Navy else Reso.colors.muted, maxLines = 1)
         }
     }
 }
@@ -439,6 +445,7 @@ fun StepButton(plus: Boolean, onClick: () -> Unit, size: Dp = 56.dp, enabled: Bo
 
 // ---------------------------------------------------------------- inputs
 
+@OptIn(ExperimentalFoundationApi::class, ExperimentalLayoutApi::class)
 @Composable
 fun Field(
     label: String?,
@@ -464,11 +471,21 @@ fun Field(
     val source = remember { MutableInteractionSource() }
     val focused by source.collectIsFocusedAsState()
     var reveal by rememberSaveable { mutableStateOf(false) }
+    // Keep the focused field visible above the keyboard: once the IME has finished opening
+    // (the scroll container has resized), scroll this field into view.
+    val bringIntoView = remember { BringIntoViewRequester() }
+    val imeVisible = WindowInsets.isImeVisible
+    LaunchedEffect(focused, imeVisible) {
+        if (focused) {
+            kotlinx.coroutines.delay(280)
+            bringIntoView.bringIntoView()
+        }
+    }
     val borderColor by animateColorAsState(
         when { error != null -> c.red; focused -> c.ink; else -> c.inputBorder }, tween(180), label = "border",
     )
     val focus = LocalFocusManager.current
-    Column(modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+    Column(modifier.fillMaxWidth().bringIntoViewRequester(bringIntoView), verticalArrangement = Arrangement.spacedBy(6.dp)) {
         if (label != null) T(label, 14.sp, FontWeight.Bold, c.text)
         val shape = RoundedCornerShape(12.dp)
         BasicTextField(
@@ -933,7 +950,7 @@ fun BottomBar(
                 items.forEachIndexed { i, item ->
                     if (fab != null && i == half) {
                         Column(Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally) {
-                            Spacer(Modifier.height(30.dp))
+                            Spacer(Modifier.height(40.dp))
                             T(fab.label, 13.sp, FontWeight.Bold, if (fab.route == selected) c.ink else c.text, maxLines = 1)
                         }
                     }

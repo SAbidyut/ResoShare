@@ -14,6 +14,8 @@ import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performTextInput
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.github.takahirom.roborazzi.captureRoboImage
+import net.rapti.resoshare.core.i18n.AppLang
+import net.rapti.resoshare.core.i18n.Lang
 import net.rapti.resoshare.core.ui.theme.ThemeMode
 import org.junit.Rule
 import org.junit.Test
@@ -25,13 +27,13 @@ import org.robolectric.annotation.LooperMode
 import java.time.Duration
 
 /**
- * Drives the real shareholder app (demo flavor) end to end and records screenshots of
- * every screen in light and dark theme into build/screens/.
+ * Drives the shareholder portal (demo flavor) end to end and records screenshots of every
+ * screen in light, dark and English into build/screens/user/.
  */
 @RunWith(AndroidJUnit4::class)
 @GraphicsMode(GraphicsMode.Mode.NATIVE)
 @LooperMode(LooperMode.Mode.PAUSED)
-@Config(sdk = [34], qualifiers = "w392dp-h1600dp-xxhdpi")
+@Config(sdk = [34], qualifiers = "w392dp-h1700dp-xxhdpi")
 class UserScreensTest {
     companion object { init { FakeAndroidKeyStore.install() } }
 
@@ -54,11 +56,14 @@ class UserScreensTest {
         rule.onAllNodesWithText(text, substring = true).filter(hasClickAction())
 
     private fun click(text: String) {
-        val node = clickable(text).onFirst()
+        val exact = rule.onAllNodesWithText(text, substring = false).filter(hasClickAction())
+        val node = if (exact.fetchSemanticsNodes().isNotEmpty()) exact.onFirst() else clickable(text).onFirst()
         runCatching { node.performScrollTo() }
         settle()
         node.performClick(); settle()
     }
+
+    private fun back() { rule.activity.onBackPressedDispatcher.onBackPressed(); settle() }
 
     private fun shot(name: String) {
         settle()
@@ -76,13 +81,15 @@ class UserScreensTest {
 
     @Test
     fun walkThroughAllScreens() {
+        Lang.set(AppLang.BN)
         waitText("লগইন করুন")
         if (has("বুঝেছি")) click("বুঝেছি")
+        waitText("আজকের শেয়ার রেট")
         bothThemes("01_login")
 
-        // Registration wizard (step 1 → validation errors → filled).
+        // Registration wizard.
         click("রেজিস্ট্রেশন করুন")
-        waitText("ধাপ ১")
+        waitText("মাত্র ৩ ধাপে")
         bothThemes("02_register_step1")
         click("পরবর্তী ধাপ")
         shot("02_register_step1_errors")
@@ -91,11 +98,11 @@ class UserScreensTest {
         rule.onAllNodes(hasSetTextAction())[2].performTextInput("karim@example.com")
         rule.onAllNodes(hasSetTextAction())[3].performTextInput("Strong#Pass99")
         rule.onAllNodes(hasSetTextAction())[4].performTextInput("Strong#Pass99")
+        shot("02_register_step1_filled")
         click("পরবর্তী ধাপ")
-        waitText("ধাপ ২")
+        waitText("নথি আপলোড করুন")
         bothThemes("03_register_step2_kyc")
-        rule.activity.onBackPressedDispatcher.onBackPressed(); settle()
-        rule.activity.onBackPressedDispatcher.onBackPressed(); settle()
+        back(); back()
         waitText("পাসওয়ার্ড ভুলে গেছেন?")
 
         // Login with the demo account.
@@ -103,54 +110,76 @@ class UserScreensTest {
         rule.onAllNodes(hasSetTextAction())[1].performTextInput("Demo@1234")
         clickable("লগইন করুন").onFirst().performClick()
         waitText("আসসালামু আলাইকুম")
-        waitText("সাম্প্রতিক লেনদেন")
+        waitText("নোটিশ বোর্ড")
+        waitText("৭ দিনের রেট")
         bothThemes("04_home")
 
-        click("শেয়ার কিনুন")
-        waitText("কয়টি শেয়ার কিনবেন")
-        bothThemes("05_buy")
-        click("ব্যাংক ট্রান্সফার")
-        shot("05_buy_bank_light")
-
-        click("চার্ট")
+        click("রেট চার্ট")
         waitText("বৃদ্ধি ও হ্রাস")
-        bothThemes("06_chart_daily")
-        click("মাসিক")
-        waitText("গত ১২ মাসে")
-        shot("06_chart_monthly_light")
+        bothThemes("05_chart")
+
+        click("নোটিশ")
+        waitText("কোম্পানির বার্তা শুধু")
+        bothThemes("06_notices")
 
         click("প্রোফাইল")
-        waitText("আজ বেচলে")
+        waitText("দ্রুত লিংক")
+        bothThemes("07_profile_summary")
+        click("আমার শেয়ার")
         waitText("আমার শেয়ারের তালিকা")
-        bothThemes("07_profile")
+        shot("07_profile_shares_light")
+        click("নমিনি")
+        waitText("সর্বোচ্চ ২ জন")
+        shot("07_profile_nominees_light")
+        click("সারাংশ")
 
-        click("শেয়ার সার্টিফিকেট দেখুন")
+        click("শেয়ার সার্টিফিকেট")
         waitText("সার্টিফিকেট নম্বর")
         bothThemes("08_certificate")
-        rule.activity.onBackPressedDispatcher.onBackPressed(); settle()
+        back()
 
-        click("কোম্পানির বার্তা ও রেটের খবর")
-        waitText("শেয়ারের রেট পরিবর্তন")
-        bothThemes("09_notices")
-        rule.activity.onBackPressedDispatcher.onBackPressed(); settle()
-
-        clickable("নিয়ম ও রেগুলেশন").onFirst().performClick(); settle()
+        click("নিয়ম ও রেগুলেশন")
         waitText("শেয়ার কেনার নিয়ম")
-        bothThemes("10_rules")
-        rule.activity.onBackPressedDispatcher.onBackPressed(); settle()
+        bothThemes("09_rules")
+        back()
 
-        click("সম্পাদনা")
-        waitText("মালিকানার ভাগ")
-        bothThemes("11_nominee_edit")
-        rule.activity.onBackPressedDispatcher.onBackPressed(); settle()
+        // Buy (from the bottom-bar + button).
+        click("হোম")
+        waitText("আসসালামু আলাইকুম")
+        clickable("শেয়ার কিনুন").onFirst().performClick(); settle()
+        waitText("কয়টি শেয়ার কিনবেন")
+        bothThemes("10_buy")
+        click("ব্যাংক ট্রান্সফার")
+        shot("10_buy_bank_light")
+        back()
 
+        click("প্রোফাইল")
+        waitText("দ্রুত লিংক")
+        click("সেটিংস")
+        waitText("অ্যাপের থিম")
+        shot("11_settings_light")
         click("সব লেনদেন")
         waitText("ORD-")
         bothThemes("12_orders")
-        rule.activity.onBackPressedDispatcher.onBackPressed(); settle()
+        back()
 
-        click("পাসওয়ার্ড পরিবর্তন")
-        waitText("বর্তমান পাসওয়ার্ড")
-        shot("13_change_password_light")
+        // Switch to English and capture key screens.
+        click("English")
+        waitText("App theme")
+        shot("13_settings_en_light")
+        back()
+        waitText("Quick links")
+        shot("14_profile_en_light")
+        click("Home")
+        waitText("Notice board")
+        shot("15_home_en_light")
+        clickable("Buy").onFirst().performClick(); settle()
+        waitText("How many shares")
+        shot("16_buy_en_light")
+        back()
+        click("Notices")
+        waitText("Company messages")
+        shot("17_notices_en_light")
+        Lang.set(AppLang.BN)
     }
 }
