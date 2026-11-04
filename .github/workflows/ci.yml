@@ -50,9 +50,9 @@ jobs:
       - name: Lint, screenshot walkthroughs, release builds (unsigned)
         run: >-
           ./gradlew --no-daemon
-          lintUserDemoDebug lintAdminDemoDebug
-          testUserDemoDebugUnitTest testAdminDemoDebugUnitTest
-          assembleUserDemoRelease assembleAdminDemoRelease assembleUserLiveRelease assembleAdminLiveRelease
+          lintDemoDebug
+          testDemoDebugUnitTest
+          assembleDemoRelease assembleLiveRelease
       - uses: actions/upload-artifact@v4
         if: always()
         with:

@@ -9,15 +9,15 @@ an admin Android app and a secure backend. UI in Bangla (Kalpurush font), light 
 |---|---|
 | `docs/API.md` | REST contract shared by the apps and the server |
 | `backend/` | Node 22 + TypeScript + Fastify + PostgreSQL server, Docker Compose deploy with automatic HTTPS ([README](backend/README.md)) |
-| `android/` | Kotlin + Jetpack Compose. Flavors `user`/`admin` × `live`/`demo` |
+| `android/` | Kotlin + Jetpack Compose. One app with a shareholder portal and an admin portal, Bangla + English. Flavors `live` / `demo` |
 
 ## Android builds
 
 ```bash
 cd android
-./gradlew assembleUserDemoRelease assembleAdminDemoRelease   # offline demo apps (no network permission)
-./gradlew assembleUserLiveRelease assembleAdminLiveRelease   # talk to RESO_API_BASE_URL (gradle.properties)
-./gradlew testUserDemoDebugUnitTest testAdminDemoDebugUnitTest  # Robolectric walkthroughs → app/build/screens/
+./gradlew assembleDemoRelease      # offline demo app (no network permission)
+./gradlew assembleLiveRelease      # talks to RESO_API_BASE_URL (gradle.properties)
+./gradlew testDemoDebugUnitTest    # Robolectric walkthroughs → app/build/screens/
 ```
 
 Release signing reads `android/keystore.properties` (git-ignored) or the `RESO_KEYSTORE*` environment variables.
