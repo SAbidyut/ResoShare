@@ -40,7 +40,8 @@ Then open the **admin app**, log in with that email + temporary password, scan t
 authenticator app (Google Authenticator, Microsoft Authenticator, …), enter the 6-digit code and
 set a new password. Then fill **সেটিংস → পেমেন্ট মাধ্যম** (office address, bank details).
 
-The Android apps must be built with `RESO_API_BASE_URL=https://<DOMAIN>/api/v1/`.
+The Android apps must be built with `RESO_API_BASE_URL=https://<DOMAIN>/` in `android/gradle.properties`
+(the app adds `api/v1/…` itself).
 
 **Back up** `.env` (especially `DATA_ENC_KEY` and `HMAC_KEY`) and the `dbdata` + `uploads`
 volumes. Without the keys, encrypted NIDs/KYC images cannot be read and certificate QRs stop verifying.
@@ -49,8 +50,10 @@ volumes. Without the keys, encrypted NIDs/KYC images cannot be read and certific
 docker compose exec db pg_dump -U resoshare resoshare | gzip > backup-$(date +%F).sql.gz
 ```
 
-If you put Cloudflare's proxy (orange cloud) in front, configure Caddy `trusted_proxies` with the
-Cloudflare IP ranges and `client_ip_headers CF-Connecting-IP`, otherwise per-IP rate limits see Cloudflare IPs.
+Keep the API hostname **DNS-only (grey cloud)** in Cloudflare so Caddy can obtain and renew its own
+certificate and per-IP rate limits see real client IPs. If you do put Cloudflare's proxy (orange cloud) in
+front, configure Caddy `trusted_proxies` with the Cloudflare IP ranges and `client_ip_headers CF-Connecting-IP`,
+otherwise every request appears to come from a Cloudflare IP.
 
 ## Local development
 

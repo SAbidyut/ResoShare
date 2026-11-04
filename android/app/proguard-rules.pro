@@ -22,7 +22,7 @@
 -keep,includedescriptorclasses class net.rapti.resoshare.**$$serializer { *; }
 
 # Retrofit service interfaces (generic return types must survive R8 full mode).
--keep,allowobfuscation interface net.rapti.resoshare.data.api.** { *; }
+-keep,allowobfuscation,allowshrinking interface net.rapti.resoshare.data.api.** { *; }
 -keep,allowobfuscation,allowshrinking class kotlin.coroutines.Continuation
 -dontwarn okhttp3.internal.platform.**
 -dontwarn org.conscrypt.**
