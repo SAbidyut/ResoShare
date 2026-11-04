@@ -5,7 +5,7 @@ import { Crypto, tempPassword } from '../src/util/crypto.js';
 import { maskEmail, maskId, maskMobile } from '../src/util/mask.js';
 import { base32Encode, hotp, verifyTotp, totpAt } from '../src/util/totp.js';
 import { addMonths, ageOn, isValidDate, lastOfMonth } from '../src/util/time.js';
-import { normalizeMobile } from '../src/util/validate.js';
+import { normalizeMobile, zPassword } from '../src/util/validate.js';
 import { chartDates } from '../src/services/chart.js';
 import { salesBuckets } from '../src/routes/admin/overview.js';
 import { compareVersions } from '../src/routes/admin/content.js';
@@ -87,12 +87,14 @@ describe('crypto', () => {
     f[f.length - 1] ^= 1;
     expect(() => c.decryptFile(f)).toThrow();
   });
-  it('temp passwords are 12 chars with letters and digits', () => {
-    for (let i = 0; i < 50; i++) {
+  it('temp passwords are 12 chars with letters, digits and a symbol, and satisfy the password policy', () => {
+    for (let i = 0; i < 200; i++) {
       const p = tempPassword();
-      expect(p).toMatch(/^[A-Za-z2-9]{12}$/);
+      expect(p).toMatch(/^[A-Za-z2-9@#!%+=]{12}$/);
       expect(p).toMatch(/[A-Za-z]/);
       expect(p).toMatch(/\d/);
+      expect(p).toMatch(/[@#!%+=]/);
+      expect(zPassword.safeParse(p).success).toBe(true);
     }
   });
 });

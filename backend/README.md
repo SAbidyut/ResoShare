@@ -50,14 +50,51 @@ the audit-log chain cannot be checked.
 After pulling a new version run `docker compose up -d --build` again: the `migrate` job applies new
 migrations and refreshes the runtime role's grants before the API starts.
 
-```bash
-docker compose exec db pg_dump -U resoshare resoshare | gzip > backup-$(date +%F).sql.gz
-```
-
 Keep the API hostname **DNS-only (grey cloud)** in Cloudflare so Caddy can obtain and renew its own
 certificate and per-IP rate limits see real client IPs. If you do put Cloudflare's proxy (orange cloud) in
 front, configure Caddy `trusted_proxies` with the Cloudflare IP ranges and `client_ip_headers CF-Connecting-IP`,
 otherwise every request appears to come from a Cloudflare IP.
+
+## Backups
+
+**What runs:** the `backup` service (`scripts/backup.sh`, image `postgres:16-alpine`, internal network only,
+read-only, no capabilities) makes a `pg_dump -Fc` of the whole database **every day at 03:00 Asia/Dhaka**,
+and immediately when an admin presses *ব্যাকআপ নিন* in the admin app (`POST /admin/backup`, max once per
+10 minutes, audited). Dumps older than `BACKUP_KEEP_DAYS` (default 14) are deleted automatically. The admin
+app shows the last result from `GET /admin/backup` (`status.json`: last time, ok/failed/running, size).
+
+**Where they live:** in the Docker volume `backups` as `resoshare-YYYYmmdd-HHMM.dump`
+(`docker volume inspect backend_backups` shows the host path, usually
+`/var/lib/docker/volumes/backend_backups/_data`). The API container can only drop a request file there;
+it cannot list, read or delete dumps.
+
+**Copy them off the server** (do this regularly — a backup on the same disk is not a backup):
+
+```bash
+# list and copy the newest dump to the current folder on the server
+docker compose exec backup ls -l /backups
+docker compose cp backup:/backups/resoshare-20261105-0300.dump ./
+# then from your own computer
+scp root@<server>:~/ResoShare/backend/resoshare-20261105-0300.dump .
+```
+
+**Restore** (stop the API first so nothing writes during the restore):
+
+```bash
+docker compose stop api
+docker compose cp ./resoshare-20261105-0300.dump db:/tmp/restore.dump
+docker compose exec db pg_restore -U resoshare -d resoshare --clean --if-exists --no-owner /tmp/restore.dump
+docker compose exec db rm /tmp/restore.dump
+docker compose up -d migrate api   # re-applies grants for the runtime role, then starts the API
+```
+
+Uploaded KYC images live in the `uploads` volume, not in the dump: back that volume up as well, e.g.
+`docker run --rm -v backend_uploads:/u -v "$PWD":/out alpine tar czf /out/uploads-$(date +%F).tgz -C /u .`
+
+> **The dumps contain personal data** (names, mobile numbers, emails, dates of birth, orders; NID numbers
+> are encrypted). Store copies only on encrypted disks or encrypt them (e.g. `gpg -c file.dump`), never in
+> e-mail or public cloud folders, and keep them **separate from `.env`**: the dump plus `DATA_ENC_KEY`
+> together reveal NID numbers and KYC images. A restore is only fully usable with the same `.env` keys.
 
 ## Local development
 
@@ -91,5 +128,6 @@ src/util/                crypto (AES-GCM, HMAC), TOTP, validation, Bangla format
 src/jobs/scheduler.ts    midnight rate notices, cleanup, audit-chain verification
 src/services/throttle.ts per-(account, IP) login throttling + account-wide cap
 src/cli/migrate.ts       one-shot migrate job (owner creds) + runtime role grants
+scripts/backup.sh        daily/on-request pg_dump loop for the `backup` container
 migrations/*.sql         schema + seed (roles, pool 10,000 shares, ৳১,০০০.০০ rate, rules v1.0)
 ```

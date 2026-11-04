@@ -21,6 +21,7 @@ import { adminMarketRoutes } from './routes/admin/market.js';
 import { adminContentRoutes } from './routes/admin/content.js';
 import { adminReportRoutes } from './routes/admin/reports.js';
 import { adminStaffRoutes } from './routes/admin/staff.js';
+import { adminBackupRoutes } from './routes/admin/backup.js';
 
 export type BuildOptions = { config: Config; db: Db; logger?: boolean };
 
@@ -144,6 +145,7 @@ export async function buildApp(opts: BuildOptions): Promise<FastifyInstance> {
       await adminContentRoutes(api, ctx);
       await adminReportRoutes(api, ctx);
       await adminStaffRoutes(api, ctx);
+      await adminBackupRoutes(api, ctx);
     },
     { prefix: '/api/v1' },
   );

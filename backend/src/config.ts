@@ -35,6 +35,7 @@ const EnvSchema = z.object({
   TRUST_PROXY: z.string().default('false'),
   LOG_LEVEL: z.enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace', 'silent']).default('info'),
   DISABLE_RATE_LIMIT: z.enum(['true', 'false']).default('false'),
+  BACKUP_DIR: z.string().default('/backups').refine((v) => v.startsWith('/'), 'BACKUP_DIR must be an absolute path'),
 });
 
 export type Config = {
@@ -53,6 +54,7 @@ export type Config = {
   trustProxy: boolean | number | string;
   logLevel: string;
   rateLimitEnabled: boolean;
+  backupDir: string;
 };
 
 function parseTrustProxy(v: string): boolean | number | string {
@@ -97,5 +99,6 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
     trustProxy: parseTrustProxy(e.TRUST_PROXY),
     logLevel: e.LOG_LEVEL,
     rateLimitEnabled: e.DISABLE_RATE_LIMIT !== 'true',
+    backupDir: e.BACKUP_DIR,
   };
 }

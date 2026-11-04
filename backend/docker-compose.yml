@@ -5,6 +5,8 @@
 #   resoshare      owner/superuser — used ONLY by the one-shot `migrate` job (schema changes, role grants)
 #   resoshare_app  restricted runtime role — the only credentials the API ever sees
 #                  (no superuser, owns nothing, audit_log: SELECT + INSERT only)
+# Backups: the `backup` service (owner creds, internal network only) writes daily pg_dump files
+# into the `backups` volume; see README "Backups".
 services:
   db:
     image: postgres:16-alpine
@@ -55,8 +57,12 @@ services:
       HMAC_KEY: ${HMAC_KEY:?set HMAC_KEY in .env}
       DATA_ENC_KEY: ${DATA_ENC_KEY:?set DATA_ENC_KEY in .env}
       LOG_LEVEL: ${LOG_LEVEL:-info}
+      BACKUP_DIR: /backups
     volumes:
       - uploads:/data/uploads
+      # Only to drop `.request` and read `status.json`; the directory is not listable by the API user
+      # and the dumps are mode 600, so the API cannot read or delete them.
+      - backups:/backups
     depends_on:
       migrate:
         condition: service_completed_successfully
@@ -64,6 +70,31 @@ services:
     read_only: true
     tmpfs: ["/tmp"]
     cap_drop: ["ALL"]
+    security_opt: ["no-new-privileges:true"]
+
+  backup:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    entrypoint: ["/bin/sh", "/scripts/backup.sh"]
+    environment:
+      PGHOST: db
+      PGPORT: "5432"
+      PGUSER: resoshare            # owner: needs to read every table (audit_log included)
+      PGPASSWORD: ${POSTGRES_PASSWORD}
+      PGDATABASE: resoshare
+      BACKUP_DIR: /backups
+      BACKUP_AT: "03:00"           # Asia/Dhaka
+      KEEP_DAYS: ${BACKUP_KEEP_DAYS:-14}
+    volumes:
+      - ./scripts/backup.sh:/scripts/backup.sh:ro
+      - backups:/backups
+    depends_on:
+      db:
+        condition: service_healthy
+    networks: [internal]           # no internet, no published ports
+    read_only: true
+    tmpfs: ["/tmp"]
+    cap_drop: ["ALL"]              # pg_dump needs no capabilities
     security_opt: ["no-new-privileges:true"]
 
   caddy:
@@ -95,5 +126,6 @@ networks:
 volumes:
   dbdata: {}
   uploads: {}
+  backups: {}
   caddy_data: {}
   caddy_config: {}

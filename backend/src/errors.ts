@@ -17,6 +17,7 @@ export type ErrorCode =
   | 'PAYLOAD_TOO_LARGE'
   | 'LOCKED'
   | 'TOO_MANY_REQUESTS'
+  | 'SERVICE_UNAVAILABLE'
   | 'SERVER_ERROR';
 
 const STATUS: Record<ErrorCode, number> = {
@@ -38,6 +39,7 @@ const STATUS: Record<ErrorCode, number> = {
   PAYLOAD_TOO_LARGE: 413,
   LOCKED: 423,
   TOO_MANY_REQUESTS: 429,
+  SERVICE_UNAVAILABLE: 503,
   SERVER_ERROR: 500,
 };
 
@@ -60,6 +62,7 @@ const DEFAULT_MESSAGE: Record<ErrorCode, string> = {
   PAYLOAD_TOO_LARGE: 'ফাইল বা তথ্য অনেক বড়। প্রতিটি ছবি সর্বোচ্চ ৫ MB হতে পারে।',
   LOCKED: 'বারবার ভুল চেষ্টার কারণে অ্যাকাউন্ট সাময়িকভাবে লক করা হয়েছে। কিছুক্ষণ পরে চেষ্টা করুন।',
   TOO_MANY_REQUESTS: 'অনেক বেশি অনুরোধ। কিছুক্ষণ পরে আবার চেষ্টা করুন।',
+  SERVICE_UNAVAILABLE: 'এই সেবাটি এখন চালু নেই। পরে আবার চেষ্টা করুন।',
   SERVER_ERROR: 'সার্ভারে সমস্যা হয়েছে। কিছুক্ষণ পরে আবার চেষ্টা করুন।',
 };
 

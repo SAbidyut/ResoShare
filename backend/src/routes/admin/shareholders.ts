@@ -5,6 +5,7 @@ import { q, q1, tx } from '../../db.js';
 import { ApiError } from '../../errors.js';
 import { audit } from '../../services/audit.js';
 import { mustStaff, revokeAllSessions, staffGuard } from '../../services/auth.js';
+import { buildCertificate } from '../../services/certificate.js';
 import { readDecrypted } from '../../services/files.js';
 import {
   ADMIN_ORDER_COLS,
@@ -115,6 +116,15 @@ export async function adminShareholderRoutes(app: FastifyInstance, ctx: Ctx) {
       });
     }
     const total = await q1<{ n: number }>(ctx.db, `SELECT count(*)::int AS n FROM shareholders s ${where}`, params);
+    // Tab badges: totals over ALL shareholders (ignore q/status), same definitions as the status filter.
+    const counts = await q1<{ all: number; verified: number; pending: number; suspended: number }>(
+      ctx.db,
+      `SELECT count(*)::int AS all,
+              count(*) FILTER (WHERE kyc_status = 'verified' AND account_status = 'active')::int AS verified,
+              count(*) FILTER (WHERE kyc_status IN ('pending','rejected') AND account_status = 'active')::int AS pending,
+              count(*) FILTER (WHERE account_status = 'suspended')::int AS suspended
+         FROM shareholders`,
+    );
     const pageParams = [...params, cur?.t ?? null, cur?.id ?? '00000000-0000-0000-0000-000000000000', query.limit + 1];
     const n = params.length;
     const cursorCond = `($${n + 1}::timestamptz IS NULL OR (s.created_at, s.id) < ($${n + 1}::timestamptz, $${n + 2}::uuid))`;
@@ -141,6 +151,7 @@ export async function adminShareholderRoutes(app: FastifyInstance, ctx: Ctx) {
       })),
       total: total?.n ?? 0,
       nextCursor: more && last ? encodeCursor(last.created_at, last.id) : null,
+      counts: counts ?? { all: 0, verified: 0, pending: 0, suspended: 0 },
     };
   });
 
@@ -198,6 +209,25 @@ export async function adminShareholderRoutes(app: FastifyInstance, ctx: Ctx) {
       orders: orders.map(orderJson),
       kycFiles: files,
     };
+  });
+
+  app.get('/admin/shareholders/:id/certificate', { preHandler: view }, async (req) => {
+    const st = mustStaff(req);
+    const id = idParam(req.params);
+    const cert = await buildCertificate(ctx, id);
+    if (!cert) throw new ApiError('NOT_FOUND', 'এই শেয়ারহোল্ডারের এখনো কোনো যাচাইকৃত শেয়ার নেই।');
+    await audit(ctx, ctx.db, {
+      actorType: 'staff',
+      actorId: st.id,
+      actorName: st.name,
+      category: 'shareholder',
+      action: 'shareholder.certificate.view',
+      message: `${possessive(cert.fullName)} সার্টিফিকেট দেখা হয়েছে`,
+      tone: 'info',
+      ip: req.ip,
+      meta: { shareholderId: id, certificateNo: cert.certificateNo },
+    });
+    return cert;
   });
 
   app.get('/admin/shareholders/:id/contact', { preHandler: view, config: { rateLimit: { max: 30, timeWindow: '1 minute' } } }, async (req) => {

@@ -12,11 +12,11 @@ import {
   startSession,
   userGuard,
 } from '../services/auth.js';
+import { buildCertificate } from '../services/certificate.js';
 import { buildChart, type Period } from '../services/chart.js';
 import { KYC_KINDS, removeStored, sanitizeImage, storeEncrypted, type KycKind } from '../services/files.js';
 import {
   cashRef,
-  certificateNo,
   ME_COLS,
   meJson,
   NOMINEE_COLS,
@@ -529,26 +529,9 @@ export async function userRoutes(app: FastifyInstance, ctx: Ctx) {
   // ---------------- certificate ----------------
 
   app.get('/me/certificate', { preHandler: auth }, async (req) => {
-    const u = mustUser(req);
-    const holder = await q1<{ shareholder_seq: number; full_name: string }>(
-      ctx.db,
-      'SELECT shareholder_seq, full_name FROM shareholders WHERE id = $1',
-      [u.id],
-    );
-    const h = await holdingOf(ctx.db, u.id);
-    if (!holder || h.shares <= 0 || !h.issuedOn) throw new ApiError('NOT_FOUND', 'এখনো কোনো যাচাইকৃত শেয়ার নেই।');
-    const cert = certificateNo(holder.shareholder_seq);
-    const sig = ctx.crypto.certSignature(cert, h.shares, h.issuedOn);
-    const settings = await getSettings(ctx.db);
-    return {
-      certificateNo: cert,
-      shareholderNo: shareholderNo(holder.shareholder_seq),
-      fullName: holder.full_name,
-      shares: h.shares,
-      issuedOn: h.issuedOn,
-      verifyUrl: `${ctx.config.publicBaseUrl}/verify/${cert}?s=${sig}`,
-      companyName: settings.company.name,
-    };
+    const cert = await buildCertificate(ctx, mustUser(req).id);
+    if (!cert) throw new ApiError('NOT_FOUND', 'এখনো কোনো যাচাইকৃত শেয়ার নেই।');
+    return cert;
   });
 
   // ---------------- nominees & KYC ----------------

@@ -23,6 +23,7 @@ const env = {
   DATA_ENC_KEY: randomBytes(32).toString('base64'),
   PUBLIC_BASE_URL: 'https://share.test',
   UPLOAD_DIR: join(tmpdir(), `resoshare-test-uploads-${process.pid}`),
+  BACKUP_DIR: join(tmpdir(), `resoshare-test-backups-${process.pid}`),
   TRUST_PROXY: 'false',
   LOG_LEVEL: 'silent',
   DISABLE_RATE_LIMIT: 'true',

@@ -4,7 +4,8 @@ import type { Ctx } from '../context.js';
 import { q1 } from '../db.js';
 import { ApiError } from '../errors.js';
 import { getSettings } from '../services/settings.js';
-import { holdingOf } from '../services/holdings.js';
+import { holdingOf, rateOn } from '../services/holdings.js';
+import { addDays, dhakaDate } from '../util/time.js';
 import { certificateNo, shareholderNo } from '../services/format.js';
 import { bnCount, bnDate } from '../util/bn.js';
 import { safeEqual } from '../util/crypto.js';
@@ -17,7 +18,17 @@ export async function publicRoutes(app: FastifyInstance, ctx: Ctx) {
 
   app.get('/public/info', { config: { rateLimit: { max: 60, timeWindow: '1 minute' } } }, async () => {
     const s = await getSettings(ctx.db);
-    return { companyName: s.company.name, hotline: s.company.hotline, email: s.company.email, officeAddress: s.payment.officeAddress };
+    const today = dhakaDate();
+    const rate = (await rateOn(ctx.db, today)) ?? 0;
+    const yesterday = await rateOn(ctx.db, addDays(today, -1));
+    return {
+      companyName: s.company.name,
+      hotline: s.company.hotline,
+      email: s.company.email,
+      officeAddress: s.payment.officeAddress,
+      todayRatePaisa: rate,
+      dayChangePaisa: yesterday === null ? 0 : rate - yesterday,
+    };
   });
 
   // Public on purpose: the registration screen links to the rules before an account exists.

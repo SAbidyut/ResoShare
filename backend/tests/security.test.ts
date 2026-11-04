@@ -408,7 +408,7 @@ describe('L10: Caddy container is hardened', () => {
     expect(caddy).toMatch(/cap_add: \["NET_BIND_SERVICE"\]/);
     expect(caddy).toMatch(/tmpfs: \["\/tmp"\]/);
     // M3: the api service only ever sees the runtime role, never the owner password
-    const api = compose.slice(compose.indexOf('  api:'), compose.indexOf('  caddy:'));
+    const api = compose.slice(compose.indexOf('  api:'), compose.indexOf('  backup:'));
     expect(api).toContain('resoshare_app:${POSTGRES_APP_PASSWORD}');
     expect(api).not.toContain('POSTGRES_PASSWORD}');
     expect(api).not.toContain('env_file');

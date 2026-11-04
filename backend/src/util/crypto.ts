@@ -1,4 +1,4 @@
-import { createCipheriv, createDecipheriv, createHash, createHmac, hkdfSync, randomBytes, timingSafeEqual } from 'node:crypto';
+import { createCipheriv, createDecipheriv, createHash, createHmac, hkdfSync, randomBytes, randomInt, timingSafeEqual } from 'node:crypto';
 
 const ALG = 'aes-256-gcm';
 const IV_LEN = 12;
@@ -93,23 +93,17 @@ export function safeEqual(a: string, b: string): boolean {
 
 const TEMP_ALPHABET_LETTERS = 'abcdefghjkmnpqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ';
 const TEMP_ALPHABET_DIGITS = '23456789';
+const TEMP_ALPHABET_SYMBOLS = '@#!%+=';
 
-/** Random temporary password: 12 chars, always contains letters and digits. */
+/** Random temporary password: 12 chars, always contains letters, digits and a symbol (meets the password policy). */
 export function tempPassword(): string {
   const all = TEMP_ALPHABET_LETTERS + TEMP_ALPHABET_DIGITS;
-  const pick = (alphabet: string) => {
-    // rejection sampling to avoid modulo bias
-    const max = 256 - (256 % alphabet.length);
-    for (;;) {
-      const b = randomBytes(1)[0] ?? 0;
-      if (b < max) return alphabet[b % alphabet.length] ?? 'x';
-    }
-  };
-  const chars = [pick(TEMP_ALPHABET_LETTERS), pick(TEMP_ALPHABET_DIGITS)];
+  const pick = (alphabet: string) => alphabet[randomInt(alphabet.length)] ?? 'x';
+  const chars = [pick(TEMP_ALPHABET_LETTERS), pick(TEMP_ALPHABET_DIGITS), pick(TEMP_ALPHABET_SYMBOLS)];
   while (chars.length < 12) chars.push(pick(all));
   // Fisher–Yates shuffle with crypto randomness
   for (let i = chars.length - 1; i > 0; i--) {
-    const j = (randomBytes(1)[0] ?? 0) % (i + 1);
+    const j = randomInt(i + 1);
     [chars[i], chars[j]] = [chars[j] as string, chars[i] as string];
   }
   return chars.join('');

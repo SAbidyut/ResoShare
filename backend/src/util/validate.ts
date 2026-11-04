@@ -54,11 +54,18 @@ export const zEmail = z
   .transform((s) => s.trim().toLowerCase())
   .pipe(z.string().max(254, 'ইমেইল অনেক বড়').regex(EMAIL_RE, 'সঠিক ইমেইল দিন'));
 
+export const PASSWORD_SHAPE_MSG = 'পাসওয়ার্ডে অক্ষর, সংখ্যা ও একটি চিহ্ন (যেমন @ # !) রাখুন';
+
+/** At least one letter, one digit and one symbol (anything that is not a letter or digit). */
+export function isStrongShape(s: string): boolean {
+  return /\p{L}/u.test(s) && /\p{Nd}/u.test(s) && /[^\p{L}\p{N}\p{M}]/u.test(s);
+}
+
 export const zPassword = z
   .string()
   .min(8, 'পাসওয়ার্ড কমপক্ষে ৮ অক্ষরের হতে হবে')
   .max(128, 'পাসওয়ার্ড অনেক বড়')
-  .refine((s) => /\p{L}/u.test(s) && /[0-9]/.test(s), 'পাসওয়ার্ডে অন্তত একটি অক্ষর ও একটি সংখ্যা থাকতে হবে')
+  .refine((s) => isStrongShape(s), PASSWORD_SHAPE_MSG)
   .refine((s) => !isCommonPassword(s), 'এই পাসওয়ার্ডটি খুব সাধারণ, অন্য পাসওয়ার্ড দিন');
 
 /** Password field on login – only bounded, never echoes policy. */
