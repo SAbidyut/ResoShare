@@ -1,6 +1,7 @@
 package net.rapti.resoshare.admin
 
 import androidx.compose.animation.AnimatedVisibility
+import net.rapti.resoshare.core.i18n.t
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -29,6 +30,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -74,6 +76,8 @@ object Routes {
     const val MORE = "more"
     const val HOLDER = "holder/{id}"
     fun holder(id: String) = "holder/$id"
+    const val HOLDER_CERT = "holder-cert/{id}"
+    fun holderCert(id: String) = "holder-cert/$id"
     const val TRANSACTIONS = "transactions"
     const val RATE = "rate"
     const val DIVIDEND = "dividend"
@@ -149,7 +153,7 @@ private val OFFLINE = setOf("NETWORK", "TLS", "SERVER_ERROR", "TOO_MANY_REQUESTS
 @Composable
 fun AdminRoot() {
     var boot by remember { mutableStateOf<Boot>(Boot.Checking) }
-    var attempt by remember { mutableStateOf(0) }
+    var attempt by remember { mutableIntStateOf(0) }
     val scope = rememberCoroutineScope()
     LaunchedEffect(attempt) { boot = Boot.Checking; boot = restore() }
     when (val b = boot) {
@@ -161,7 +165,7 @@ fun AdminRoot() {
         ) {
             BrandLogo(56.dp)
             ErrorBlock(b.message, { attempt++ })
-            SecondaryButton("আবার লগইন করুন", {
+            SecondaryButton(t("আবার লগইন করুন", "Log in again"), {
                 scope.launch { Graph.tokens.clear(); boot = Boot.Login }
             }, Modifier.widthIn(max = 260.dp), height = 48.dp)
         }
@@ -184,7 +188,7 @@ private fun Splash() {
     ) {
         BrandLogo(72.dp)
         T("Resonance Automation", 20.sp, FontWeight.Bold, androidx.compose.ui.graphics.Color.White, align = TextAlign.Center)
-        T("অ্যাডমিন প্যানেল", 14.sp, color = Brand.HeaderMuted)
+        T(t("অ্যাডমিন প্যানেল", "Admin panel"), 14.sp, color = Brand.HeaderMuted)
     }
 }
 
@@ -216,19 +220,20 @@ private fun AdminNavHost(start: String) {
                 navController = nav,
                 startDestination = start,
                 modifier = Modifier.fillMaxSize().background(Reso.colors.bg),
-                enterTransition = { slideInHorizontally(tween(300)) { it / 4 } + fadeIn(tween(300)) },
-                exitTransition = { slideOutHorizontally(tween(300)) { -it / 10 } + fadeOut(tween(200)) },
-                popEnterTransition = { slideInHorizontally(tween(300)) { -it / 10 } + fadeIn(tween(300)) },
-                popExitTransition = { slideOutHorizontally(tween(300)) { it / 4 } + fadeOut(tween(200)) },
+                // Light transitions: a short fade with a small slide keeps scrolling/transition frames cheap.
+                enterTransition = { slideInHorizontally(tween(240)) { it / 12 } + fadeIn(tween(240)) },
+                exitTransition = { fadeOut(tween(160)) },
+                popEnterTransition = { fadeIn(tween(200)) },
+                popExitTransition = { slideOutHorizontally(tween(220)) { it / 12 } + fadeOut(tween(180)) },
             ) { graph(an) }
         }
         AnimatedVisibility(showBar, enter = slideInVertically { it } + fadeIn(), exit = slideOutVertically { it } + fadeOut()) {
             BottomBar(
                 listOf(
-                    NavItem(Routes.DASH, "ড্যাশবোর্ড", ResoIcons.Grid),
-                    NavItem(Routes.HOLDERS, "শেয়ারহোল্ডার", ResoIcons.Users),
-                    NavItem(Routes.APPROVALS, "অনুমোদন", ResoIcons.CheckCircle, pending),
-                    NavItem(Routes.MORE, "আরও", ResoIcons.More),
+                    NavItem(Routes.DASH, t("ড্যাশবোর্ড", "Dashboard"), ResoIcons.Grid),
+                    NavItem(Routes.HOLDERS, t("শেয়ারহোল্ডার", "Shareholders"), ResoIcons.Users),
+                    NavItem(Routes.APPROVALS, t("অনুমোদন", "Approvals"), ResoIcons.CheckCircle, pending),
+                    NavItem(Routes.MORE, t("আরও", "More"), ResoIcons.More),
                 ),
                 route,
                 onSelect = { an.tab(it) },
@@ -256,6 +261,9 @@ private fun NavGraphBuilder.graph(an: AdminNav) {
     tab(Routes.MORE) { MoreScreen(an) }
     composable(Routes.HOLDER, arguments = listOf(navArgument("id") { type = NavType.StringType })) {
         ShareholderDetailScreen(it.arguments?.getString("id").orEmpty(), an)
+    }
+    composable(Routes.HOLDER_CERT, arguments = listOf(navArgument("id") { type = NavType.StringType })) {
+        HolderCertificateScreen(it.arguments?.getString("id").orEmpty(), an)
     }
     composable(Routes.TRANSACTIONS) { TransactionsScreen(an) }
     composable(Routes.RATE) { RateScreen(an) }

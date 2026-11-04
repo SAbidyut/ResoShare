@@ -1,6 +1,7 @@
 package net.rapti.resoshare.admin
 
 import androidx.compose.animation.AnimatedVisibility
+import net.rapti.resoshare.core.i18n.t
 import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -109,25 +110,25 @@ fun RulesEditorScreen(an: AdminNav) {
     val dirty = sections.map { it.toSection() } != baseline
 
     fun validate(): String? {
-        if (sections.isEmpty()) return "অন্তত একটি ধারা রাখুন"
-        if (sections.size > 30) return "সর্বোচ্চ ৩০টি ধারা রাখা যায়"
+        if (sections.isEmpty()) return t("অন্তত একটি ধারা রাখুন", "Keep at least one section")
+        if (sections.size > 30) return t("সর্বোচ্চ ৩০টি ধারা রাখা যায়", "At most 30 sections are allowed")
         sections.forEachIndexed { i, s ->
             val n = Bn.num(i + 1)
-            if (s.title.trim().length < 2) return "ধারা $n-এর নাম লিখুন"
+            if (s.title.trim().length < 2) return t("ধারা $n-এর নাম লিখুন", "Enter a name for section $n")
             val items = s.items()
-            if (items.isEmpty()) return "ধারা $n-এ অন্তত একটি নিয়ম লিখুন"
-            if (items.size > 50) return "ধারা $n-এ সর্বোচ্চ ৫০টি নিয়ম রাখা যায়"
-            if (items.any { it.length > 500 }) return "ধারা $n-এর প্রতিটি নিয়ম ৫০০ অক্ষরের মধ্যে রাখুন"
+            if (items.isEmpty()) return t("ধারা $n-এ অন্তত একটি নিয়ম লিখুন", "Write at least one rule in section $n")
+            if (items.size > 50) return t("ধারা $n-এ সর্বোচ্চ ৫০টি নিয়ম রাখা যায়", "Section $n can have at most 50 rules")
+            if (items.any { it.length > 500 }) return t("ধারা $n-এর প্রতিটি নিয়ম ৫০০ অক্ষরের মধ্যে রাখুন", "Keep each rule in section $n under 500 characters")
         }
         return null
     }
 
     AdminScreen(
         header = {
-            ScreenHeader("নিয়ম ও রেগুলেশন", onBack = an::back) {
+            ScreenHeader(t("নিয়ম ও রেগুলেশন", "Rules & regulations"), onBack = an::back) {
                 Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                    HeaderStat("চালু সংস্করণ", data?.current?.version?.let { Bn.digits(it) } ?: "—", Modifier.weight(1f))
-                    HeaderStat("কার্যকর হয়েছে", data?.current?.effectiveDate?.let { Bn.date(it) } ?: "—", Modifier.weight(1.4f))
+                    HeaderStat(t("চালু সংস্করণ", "Current version"), data?.current?.version?.let { Bn.digits(it) } ?: "—", Modifier.weight(1f))
+                    HeaderStat(t("কার্যকর হয়েছে", "Effective from"), data?.current?.effectiveDate?.let { Bn.date(it) } ?: "—", Modifier.weight(1.4f))
                 }
             }
         },
@@ -136,14 +137,14 @@ fun RulesEditorScreen(an: AdminNav) {
     ) {
         loadItems(loader.state, { loader.load() }) { d ->
             item("info") {
-                InfoBox("এখানে যা লিখে “প্রকাশ করুন” চাপবেন, ইউজারদের অ্যাপের “নিয়ম ও রেগুলেশন” স্ক্রিনে সেটাই দেখাবে। প্রতি লাইন ইউজারের কাছে একটি আলাদা পয়েন্ট হয়ে দেখাবে।")
+                InfoBox(t("এখানে যা লিখে “প্রকাশ করুন” চাপবেন, ইউজারদের অ্যাপের “নিয়ম ও রেগুলেশন” স্ক্রিনে সেটাই দেখাবে। প্রতি লাইন ইউজারের কাছে একটি আলাদা পয়েন্ট হয়ে দেখাবে।", "Whatever you write here and publish appears on the shareholders' “Rules & regulations” screen. Each line shows as a separate point."))
             }
             item("sections") {
                 ResoCard {
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        T("ধারাসমূহ (${Bn.num(sections.size)}টি)", 17.sp, FontWeight.Bold, modifier = Modifier.weight(1f))
-                        if (dirty) Tag("খসড়া সম্পাদনা", c.warnBg, c.brown)
-                        else if (d.draft != null) Tag("খসড়া সংরক্ষিত", c.warnBg, c.brown)
+                        T(t("ধারাসমূহ (${Bn.num(sections.size)}টি)", "Sections (${Bn.num(sections.size)})"), 17.sp, FontWeight.Bold, modifier = Modifier.weight(1f))
+                        if (dirty) Tag(t("খসড়া সম্পাদনা", "Editing draft"), c.warnBg, c.brown)
+                        else if (d.draft != null) Tag(t("খসড়া সংরক্ষিত", "Draft saved"), c.warnBg, c.brown)
                     }
                     sections.forEachIndexed { i, s ->
                         RowDivider(Modifier.padding(vertical = 10.dp))
@@ -158,8 +159,8 @@ fun RulesEditorScreen(an: AdminNav) {
                     }
                     if (canEdit) {
                         RowDivider(Modifier.padding(vertical = 10.dp))
-                        SecondaryButton("নতুন ধারা যোগ করুন", {
-                            if (sections.size >= 30) Toaster.show("সর্বোচ্চ ৩০টি ধারা রাখা যায়")
+                        SecondaryButton(t("নতুন ধারা যোগ করুন", "Add a section"), {
+                            if (sections.size >= 30) Toaster.show(t("সর্বোচ্চ ৩০টি ধারা রাখা যায়", "At most 30 sections are allowed"))
                             else EditSection("", "").also { sections.add(it); expanded = it.key }
                         }, icon = ResoIcons.Plus, height = 50.dp)
                     }
@@ -168,54 +169,54 @@ fun RulesEditorScreen(an: AdminNav) {
             if (canEdit) item("publish") {
                 ResoCard {
                     Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
-                        T("প্রকাশ করুন", 17.sp, FontWeight.Bold)
-                        Field("নতুন সংস্করণ নম্বর", version, { version = it.filter { ch -> ch.isDigit() || ch == '.' }.take(12) },
-                            placeholder = "যেমন ${Bn.digits(nextVersion(d.current?.version))}", keyboard = KeyboardType.Decimal,
-                            hint = d.current?.let { "বর্তমান সংস্করণ ${Bn.digits(it.version)}; নতুনটি এর চেয়ে বড় হতে হবে" })
-                        DateField("কার্যকর হওয়ার তারিখ", effective, { effective = it }, min = Bn.today())
-                        Field("কী বদলেছে (সংক্ষেপে)", summary, { summary = it }, placeholder = "যেমন: বিক্রির নিয়ম যোগ হয়েছে", maxLength = 300)
-                        CheckRow(notify, { notify = it }) { T("অ্যাপের নোটিশে শেয়ারহোল্ডারদের জানান", 15.sp, color = c.textSoft) }
+                        T(t("প্রকাশ করুন", "Publish"), 17.sp, FontWeight.Bold)
+                        Field(t("নতুন সংস্করণ নম্বর", "New version number"), version, { version = it.filter { ch -> ch.isDigit() || ch == '.' }.take(12) },
+                            placeholder = t("যেমন ${Bn.digits(nextVersion(d.current?.version))}", "e.g. ${nextVersion(d.current?.version)}"), keyboard = KeyboardType.Decimal,
+                            hint = d.current?.let { t("বর্তমান সংস্করণ ${Bn.digits(it.version)}; নতুনটি এর চেয়ে বড় হতে হবে", "Current version ${it.version}; the new one must be higher") })
+                        DateField(t("কার্যকর হওয়ার তারিখ", "Effective date"), effective, { effective = it }, min = Bn.today())
+                        Field(t("কী বদলেছে (সংক্ষেপে)", "What changed (short)"), summary, { summary = it }, placeholder = t("যেমন: বিক্রির নিয়ম যোগ হয়েছে", "e.g. Added selling rules"), maxLength = 300)
+                        CheckRow(notify, { notify = it }) { T(t("অ্যাপের নোটিশে শেয়ারহোল্ডারদের জানান", "Tell shareholders via an app notice"), 15.sp, color = c.textSoft) }
                         Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                            SecondaryButton("খসড়া রাখুন", {
+                            SecondaryButton(t("খসড়া রাখুন", "Save draft"), {
                                 val err = validate()
                                 if (err != null) Toaster.show(err)
                                 else draftAction.run({ Graph.adminApi.saveRulesDraft(RulesDraft(sections.map { it.toSection() })) }) {
                                     loader.set(it)
-                                    Toaster.show("খসড়া সংরক্ষণ হয়েছে")
+                                    Toaster.show(t("খসড়া সংরক্ষণ হয়েছে", "Draft saved"))
                                 }
                             }, Modifier.weight(1f), loading = draftAction.busy, enabled = !publishAction.busy)
-                            PrimaryButton("প্রকাশ করুন", {
+                            PrimaryButton(t("প্রকাশ করুন", "Publish"), {
                                 val v = Bn.ascii(version).trim()
                                 val err = validate()
-                                    ?: if (!Regex("^\\d+(\\.\\d+){0,2}$").matches(v)) "সংস্করণ নম্বর যেমন ১.১ আকারে দিন" else null
-                                    ?: if (effective == null) "কার্যকর হওয়ার তারিখ দিন" else null
+                                    ?: if (!Regex("^\\d+(\\.\\d+){0,2}$").matches(v)) t("সংস্করণ নম্বর যেমন ১.১ আকারে দিন", "Enter a version like 1.1") else null
+                                    ?: if (effective == null) t("কার্যকর হওয়ার তারিখ দিন", "Pick the effective date") else null
                                 if (err != null) Toaster.show(err) else confirmPublish = true
                             }, Modifier.weight(1f), loading = publishAction.busy, enabled = !draftAction.busy)
                         }
                     }
                 }
-            } else item("np") { InfoBox("নিয়ম সম্পাদনার অনুমতি আপনার নেই।", tone = Tone.WARN) }
+            } else item("np") { InfoBox(t("নিয়ম সম্পাদনার অনুমতি আপনার নেই।", "You don't have permission to edit the rules."), tone = Tone.WARN) }
             item("history") {
                 ResoCard {
-                    T("সংস্করণের ইতিহাস", 17.sp, FontWeight.Bold)
-                    if (d.history.isEmpty()) T("এখনো কোনো সংস্করণ নেই", 14.sp, color = c.muted, modifier = Modifier.padding(top = 8.dp))
+                    T(t("সংস্করণের ইতিহাস", "Version history"), 17.sp, FontWeight.Bold)
+                    if (d.history.isEmpty()) T(t("এখনো কোনো সংস্করণ নেই", "No versions yet"), 14.sp, color = c.muted, modifier = Modifier.padding(top = 8.dp))
                     d.history.forEach { h ->
                         RowDivider(Modifier.padding(vertical = 8.dp))
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Column(Modifier.weight(1f)) {
                                 val label = when (h.status) {
-                                    "draft" -> "খসড়া"
-                                    "published" -> "সংস্করণ ${Bn.digits(h.version)} · চালু"
-                                    else -> "সংস্করণ ${Bn.digits(h.version)}"
+                                    "draft" -> t("খসড়া", "Draft")
+                                    "published" -> t("সংস্করণ ${Bn.digits(h.version)} · চালু", "Version ${h.version} · live")
+                                    else -> t("সংস্করণ ${Bn.digits(h.version)}", "Version ${h.version}")
                                 }
                                 T(label, 15.sp, FontWeight.Bold)
                                 T(listOf(Bn.relative(h.updatedAt), h.byName).filter { it.isNotBlank() }.joinToString(" · "), 13.sp, color = c.muted)
                                 if (h.summary.isNotBlank()) T(h.summary, 13.sp, color = c.textSoft, maxLines = 2)
                             }
                             when (h.status) {
-                                "published" -> Tag("চালু", c.successBg, c.green)
-                                "draft" -> Tag("খসড়া", c.warnBg, c.brown)
-                                else -> Tag("আর্কাইভ", c.track, c.muted)
+                                "published" -> Tag(t("চালু", "Live"), c.successBg, c.green)
+                                "draft" -> Tag(t("খসড়া", "Draft"), c.warnBg, c.brown)
+                                else -> Tag(t("আর্কাইভ", "Archived"), c.track, c.muted)
                             }
                         }
                     }
@@ -226,7 +227,7 @@ fun RulesEditorScreen(an: AdminNav) {
 
     deleteKey?.let { key ->
         val s = sections.firstOrNull { it.key == key }
-        ConfirmDialog("ধারাটি মুছবেন?", "“${s?.title?.ifBlank { "নামহীন ধারা" }}” ধারা ও এর সব নিয়ম মুছে যাবে। প্রকাশ না করা পর্যন্ত ইউজারদের অ্যাপে কিছু বদলাবে না।", "মুছুন", {
+        ConfirmDialog(t("ধারাটি মুছবেন?", "Delete this section?"), t("“${s?.title?.ifBlank { "নামহীন ধারা" }}” ধারা ও এর সব নিয়ম মুছে যাবে। প্রকাশ না করা পর্যন্ত ইউজারদের অ্যাপে কিছু বদলাবে না।", "“${s?.title?.ifBlank { "Untitled section" }}” and all its rules will be removed. Nothing changes for shareholders until you publish."), t("মুছুন", "Delete"), {
             sections.removeAll { it.key == key }
             deleteKey = null
         }, { deleteKey = null }, danger = true)
@@ -234,9 +235,9 @@ fun RulesEditorScreen(an: AdminNav) {
     if (confirmPublish) {
         val v = Bn.ascii(version).trim()
         ConfirmDialog(
-            "নিয়ম প্রকাশ করবেন?",
-            "সংস্করণ ${Bn.digits(v)} প্রকাশ হলে সব শেয়ারহোল্ডারের অ্যাপে নতুন নিয়ম দেখাবে${if (notify) " এবং নোটিশ যাবে" else ""}। আগের সংস্করণ আর্কাইভ হবে।",
-            "প্রকাশ করুন",
+            t("নিয়ম প্রকাশ করবেন?", "Publish the rules?"),
+            t("সংস্করণ ${Bn.digits(v)} প্রকাশ হলে সব শেয়ারহোল্ডারের অ্যাপে নতুন নিয়ম দেখাবে${if (notify) " এবং নোটিশ যাবে" else ""}। আগের সংস্করণ আর্কাইভ হবে।", "Once version $v is published, all shareholders see the new rules${if (notify) " and get a notice" else ""}. The previous version is archived."),
+            t("প্রকাশ করুন", "Publish"),
             {
                 confirmPublish = false
                 val eff = effective ?: return@ConfirmDialog
@@ -245,7 +246,7 @@ fun RulesEditorScreen(an: AdminNav) {
                 }) {
                     summary = ""
                     loader.set(it)
-                    Toaster.show("নিয়ম প্রকাশ হয়েছে")
+                    Toaster.show(t("নিয়ম প্রকাশ হয়েছে", "Rules published"))
                 }
             },
             { confirmPublish = false },
@@ -271,8 +272,8 @@ private fun SectionEditor(
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             TextDisc(Bn.num(index + 1), c.ink, c.onInk, 30.dp, 14.sp)
             Column(Modifier.weight(1f)) {
-                T(s.title.ifBlank { "নামহীন ধারা" }, 16.sp, FontWeight.Bold, if (s.title.isBlank()) c.muted else c.text, maxLines = 2)
-                if (!open) T("${Bn.num(s.items().size)}টি নিয়ম", 12.sp, color = c.muted)
+                T(s.title.ifBlank { t("নামহীন ধারা", "Untitled section") }, 16.sp, FontWeight.Bold, if (s.title.isBlank()) c.muted else c.text, maxLines = 2)
+                if (!open) T(t("${Bn.num(s.items().size)}টি নিয়ম", "${Bn.num(s.items().size)} rules"), 12.sp, color = c.muted)
             }
             if (canEdit) {
                 val shape = RoundedCornerShape(22.dp)
@@ -282,18 +283,18 @@ private fun SectionEditor(
                         .border(1.5.dp, c.ink, shape)
                         .pressable(onClick = onToggle).padding(horizontal = 16.dp, vertical = 9.dp),
                     contentAlignment = Alignment.Center,
-                ) { T(if (open) "বন্ধ করুন" else "সম্পাদনা", 14.sp, FontWeight.Bold, if (open) c.onInk else c.ink) }
+                ) { T(if (open) t("বন্ধ করুন", "Close") else t("সম্পাদনা", "Edit"), 14.sp, FontWeight.Bold, if (open) c.onInk else c.ink) }
             }
         }
         AnimatedVisibility(open, enter = fadeIn() + expandVertically(), exit = fadeOut() + shrinkVertically()) {
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                Field("ধারার নাম", s.title, { s.title = it }, maxLength = 100)
-                Field("নিয়মগুলো (প্রতি লাইনে একটি)", s.text, { s.text = it }, singleLine = false, minHeight = 160.dp,
-                    maxLength = 20_000, ime = ImeAction.Default, hint = "${Bn.num(s.items().size)}টি নিয়ম · খালি লাইন বাদ যাবে")
+                Field(t("ধারার নাম", "Section name"), s.title, { s.title = it }, maxLength = 100)
+                Field(t("নিয়মগুলো (প্রতি লাইনে একটি)", "Rules (one per line)"), s.text, { s.text = it }, singleLine = false, minHeight = 160.dp,
+                    maxLength = 20_000, ime = ImeAction.Default, hint = t("${Bn.num(s.items().size)}টি নিয়ম · খালি লাইন বাদ যাবে", "${Bn.num(s.items().size)} rules · blank lines are ignored"))
                 Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                    SecondaryButton("↑ উপরে", onUp, Modifier.weight(1f), enabled = !isFirst, height = 46.dp)
-                    SecondaryButton("↓ নিচে", onDown, Modifier.weight(1f), enabled = !isLast, height = 46.dp)
-                    DangerButton("মুছুন", onDelete, Modifier.weight(1f), height = 46.dp)
+                    SecondaryButton(t("↑ উপরে", "↑ Up"), onUp, Modifier.weight(1f), enabled = !isFirst, height = 46.dp)
+                    SecondaryButton(t("↓ নিচে", "↓ Down"), onDown, Modifier.weight(1f), enabled = !isLast, height = 46.dp)
+                    DangerButton(t("মুছুন", "Delete"), onDelete, Modifier.weight(1f), height = 46.dp)
                 }
             }
         }

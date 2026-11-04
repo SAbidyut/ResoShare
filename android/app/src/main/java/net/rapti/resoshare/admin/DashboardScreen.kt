@@ -1,6 +1,7 @@
 package net.rapti.resoshare.admin
 
 import androidx.compose.animation.AnimatedContent
+import net.rapti.resoshare.core.i18n.t
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.togetherWith
@@ -29,6 +30,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import net.rapti.resoshare.Graph
+import net.rapti.resoshare.core.ui.headerBubble
 import net.rapti.resoshare.core.format.Bn
 import net.rapti.resoshare.core.ui.BrandLogo
 import net.rapti.resoshare.core.ui.CircleIconButton
@@ -55,8 +57,10 @@ import net.rapti.resoshare.data.api.Perm
 import net.rapti.resoshare.data.api.SalesStats
 
 private val PERIODS = listOf("daily", "weekly", "monthly", "yearly")
-private val PERIOD_LABELS = listOf("দৈনিক", "সাপ্তাহিক", "মাসিক", "বার্ষিক")
-private val PERIOD_SPAN = listOf("গত ৭ দিন", "গত ৮ সপ্তাহ", "গত ১২ মাস", "গত ৫ বছর")
+private val PERIOD_LABELS: List<String>
+    get() = listOf(t("দৈনিক", "Daily"), t("সাপ্তাহিক", "Weekly"), t("মাসিক", "Monthly"), t("বার্ষিক", "Yearly"))
+private val PERIOD_SPAN: List<String>
+    get() = listOf(t("গত ৭ দিন", "Last 7 days"), t("গত ৮ সপ্তাহ", "Last 8 weeks"), t("গত ১২ মাস", "Last 12 months"), t("গত ৫ বছর", "Last 5 years"))
 
 @Composable
 fun DashboardScreen(an: AdminNav) {
@@ -73,30 +77,30 @@ fun DashboardScreen(an: AdminNav) {
         header = {
             val c = Reso.colors
             Column(
-                Modifier.fillMaxWidth().background(c.header).statusBarsPadding().padding(start = 20.dp, end = 20.dp, top = 12.dp, bottom = 20.dp),
+                Modifier.fillMaxWidth().background(c.header).headerBubble().statusBarsPadding().padding(start = 20.dp, end = 20.dp, top = 12.dp, bottom = 20.dp),
                 verticalArrangement = Arrangement.spacedBy(16.dp),
             ) {
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                     BrandLogo(44.dp)
                     Column(Modifier.weight(1f)) {
-                        T("অ্যাডমিন প্যানেল", 14.sp, color = Brand.HeaderMuted)
-                        T("ড্যাশবোর্ড", 22.sp, FontWeight.Bold, Color.White)
+                        T(t("অ্যাডমিন প্যানেল", "Admin panel"), 14.sp, color = Brand.HeaderMuted)
+                        T(t("ড্যাশবোর্ড", "Dashboard"), 22.sp, FontWeight.Bold, Color.White)
                     }
-                    CircleIconButton(ResoIcons.Bell, "নোটিশ ও বার্তা", { an.go(Routes.NOTICES) })
+                    CircleIconButton(ResoIcons.Bell, t("নোটিশ ও বার্তা", "Notices & messages"), { an.go(Routes.NOTICES) })
                 }
                 Row(
                     Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).background(c.headerChip).padding(horizontal = 18.dp, vertical = 16.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     Column(Modifier.weight(1f)) {
-                        T("আজকের শেয়ার রেট", 14.sp, color = Brand.HeaderMuted)
+                        T(t("আজকের শেয়ার রেট", "Today's share rate"), 14.sp, color = Brand.HeaderMuted)
                         val rate = animatedLong(d?.today?.ratePaisa ?: 0L)
                         T(if (d == null) "—" else Bn.money(rate), 30.sp, FontWeight.Bold, Brand.Gold, maxLines = 1)
                     }
                     Box(
                         Modifier.clip(RoundedCornerShape(24.dp)).background(Brand.Amber)
                             .pressable(onClick = { an.go(Routes.RATE) }).padding(horizontal = 18.dp, vertical = 12.dp),
-                    ) { T(if (me?.permissions?.contains(Perm.RATE) == true) "রেট বদলান" else "রেট দেখুন", 15.sp, FontWeight.Bold, Brand.Navy) }
+                    ) { T(if (me?.permissions?.contains(Perm.RATE) == true) t("রেট বদলান", "Change rate") else t("রেট দেখুন", "View rate"), 15.sp, FontWeight.Bold, Brand.Navy) }
                 }
             }
         },
@@ -111,12 +115,12 @@ fun DashboardScreen(an: AdminNav) {
                 item("tiles") {
                     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                         Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                            StatTile("মোট শেয়ার", Bn.num(animatedLong(v.pool.totalShares.toLong())), Modifier.weight(1f))
-                            StatTile("বিক্রিত", Bn.num(animatedLong(v.pool.soldShares.toLong())), Modifier.weight(1f))
+                            StatTile(t("মোট শেয়ার", "Total shares"), Bn.num(animatedLong(v.pool.totalShares.toLong())), Modifier.weight(1f))
+                            StatTile(t("বিক্রিত", "Sold"), Bn.num(animatedLong(v.pool.soldShares.toLong())), Modifier.weight(1f))
                         }
                         Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                            StatTile("অবশিষ্ট", Bn.num(animatedLong(v.pool.remainingShares.toLong())), Modifier.weight(1f))
-                            StatTile("শেয়ারহোল্ডার", "${Bn.num(animatedLong(v.shareholderCount.toLong()))} জন", Modifier.weight(1f))
+                            StatTile(t("অবশিষ্ট", "Remaining"), Bn.num(animatedLong(v.pool.remainingShares.toLong())), Modifier.weight(1f))
+                            StatTile(t("শেয়ারহোল্ডার", "Shareholders"), t("${Bn.num(animatedLong(v.shareholderCount.toLong()))} জন", Bn.num(animatedLong(v.shareholderCount.toLong()))), Modifier.weight(1f))
                         }
                     }
                 }
@@ -124,7 +128,7 @@ fun DashboardScreen(an: AdminNav) {
                     ResoCard {
                         Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
                             Row(verticalAlignment = Alignment.CenterVertically) {
-                                T("শেয়ার বিক্রির চার্ট", 17.sp, FontWeight.Bold, modifier = Modifier.weight(1f))
+                                T(t("শেয়ার বিক্রির চার্ট", "Share sales chart"), 17.sp, FontWeight.Bold, modifier = Modifier.weight(1f))
                                 T(PERIOD_SPAN[period], 13.sp, color = Reso.colors.muted)
                             }
                             SegmentedTabs(PERIOD_LABELS, period, { period = it })
@@ -144,17 +148,17 @@ fun DashboardScreen(an: AdminNav) {
                         onClick = { an.tab(Routes.APPROVALS) }) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Column(Modifier.weight(1f)) {
-                                T("${Bn.num(pend)}টি অনুমোদন বাকি", 17.sp, FontWeight.Bold, Reso.colors.rules.value)
-                                T("${Bn.num(v.pending.payments)}টি পেমেন্ট · ${Bn.num(v.pending.kyc)}টি KYC", 14.sp, color = Reso.colors.rules.label)
+                                T(t("${Bn.num(pend)}টি অনুমোদন বাকি", "${Bn.num(pend)} approval${if (pend == 1) "" else "s"} pending"), 17.sp, FontWeight.Bold, Reso.colors.rules.value)
+                                T(t("${Bn.num(v.pending.payments)}টি পেমেন্ট · ${Bn.num(v.pending.kyc)}টি KYC", "${Bn.num(v.pending.payments)} payment${if (v.pending.payments == 1) "" else "s"} · ${Bn.num(v.pending.kyc)} KYC"), 14.sp, color = Reso.colors.rules.label)
                             }
-                            T("দেখুন ›", 15.sp, FontWeight.Bold, Reso.colors.rules.value)
+                            T(t("দেখুন ›", "View ›"), 15.sp, FontWeight.Bold, Reso.colors.rules.value)
                         }
                     }
                 }
                 item("recent") {
                     ResoCard {
-                        SectionTitle("সাম্প্রতিক লেনদেন", "সব দেখুন") { an.go(Routes.TRANSACTIONS) }
-                        if (v.recentOrders.isEmpty()) EmptyBlock("এখনো কোনো লেনদেন নেই", ResoIcons.List)
+                        SectionTitle(t("সাম্প্রতিক লেনদেন", "Recent transactions"), t("সব দেখুন", "See all")) { an.go(Routes.TRANSACTIONS) }
+                        if (v.recentOrders.isEmpty()) EmptyBlock(t("এখনো কোনো লেনদেন নেই", "No transactions yet"), ResoIcons.List)
                         v.recentOrders.forEach { o ->
                             RowDivider(Modifier.padding(vertical = 2.dp))
                             OrderLine(o)
@@ -180,11 +184,11 @@ private fun SalesBody(s: SalesStats) {
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
         Row {
             Column(Modifier.weight(1f)) {
-                T("বিক্রিত শেয়ার", 14.sp, color = c.muted)
-                T("${Bn.num(s.totalShares)}টি", 20.sp, FontWeight.Bold, maxLines = 1)
+                T(t("বিক্রিত শেয়ার", "Shares sold"), 14.sp, color = c.muted)
+                T(t("${Bn.num(s.totalShares)}টি", Bn.num(s.totalShares)), 20.sp, FontWeight.Bold, maxLines = 1)
             }
             Column(Modifier.weight(1.3f)) {
-                T("মোট আয়", 14.sp, color = c.muted)
+                T(t("মোট আয়", "Total income"), 14.sp, color = c.muted)
                 T(Bn.money(s.totalAmountPaisa), 20.sp, FontWeight.Bold, maxLines = 1)
             }
         }
@@ -194,9 +198,9 @@ private fun SalesBody(s: SalesStats) {
         )
         val ch = s.lastChangeShares
         val (txt, col) = when {
-            ch > 0 -> "▲ শেষ পয়েন্টে আগের চেয়ে +${Bn.num(ch)}টি" to c.green
-            ch < 0 -> "▼ শেষ পয়েন্টে আগের চেয়ে −${Bn.num(-ch)}টি" to c.red
-            else -> "— শেষ পয়েন্টে আগের সমান" to c.muted
+            ch > 0 -> t("▲ শেষ পয়েন্টে আগের চেয়ে +${Bn.num(ch)}টি", "▲ +${Bn.num(ch)} vs previous period") to c.green
+            ch < 0 -> t("▼ শেষ পয়েন্টে আগের চেয়ে −${Bn.num(-ch)}টি", "▼ −${Bn.num(-ch)} vs previous period") to c.red
+            else -> t("— শেষ পয়েন্টে আগের সমান", "— Same as previous period") to c.muted
         }
         T(txt, 14.sp, FontWeight.Bold, col)
     }
@@ -204,18 +208,34 @@ private fun SalesBody(s: SalesStats) {
 
 /** Compact order row: name + shares on the left, amount + status on the right. */
 @Composable
-fun OrderLine(o: AdminOrder, subtitle: String = "${Bn.num(o.quantity)}টি শেয়ার", onClick: (() -> Unit)? = null) {
+fun OrderLine(
+    o: AdminOrder,
+    subtitle: String = t("${Bn.num(o.quantity)}টি শেয়ার", "${Bn.num(o.quantity)} shares"),
+    rich: Boolean = false,
+    onClick: (() -> Unit)? = null,
+) {
+    val c = Reso.colors
     Row(
         Modifier.fillMaxWidth().heightIn(min = 56.dp).then(if (onClick != null) Modifier.pressable(onClick = onClick) else Modifier).padding(vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
     ) {
+        if (rich) {
+            // v2: initial avatar coloured by status.
+            val (bg, fg) = when (o.status) {
+                "pending" -> c.warnBg to c.brown
+                "cancelled" -> c.dangerBg to c.red
+                else -> c.successBg to c.green
+            }
+            net.rapti.resoshare.core.ui.TextDisc(Bn.initial(o.shareholderName), bg, fg, 40.dp, 16.sp)
+        }
         Column(Modifier.weight(1f)) {
             T(o.shareholderName, 16.sp, FontWeight.Bold, maxLines = 1)
-            T(subtitle, 13.sp, color = Reso.colors.muted, maxLines = 1)
+            T(subtitle, 13.sp, color = c.muted, maxLines = 1)
         }
-        Column(horizontalAlignment = Alignment.End) {
+        Column(horizontalAlignment = Alignment.End, verticalArrangement = Arrangement.spacedBy(3.dp)) {
             T(Bn.money(o.amountPaisa), 16.sp, FontWeight.Bold, maxLines = 1)
-            StatusText(o.status)
+            if (rich) net.rapti.resoshare.core.ui.StatusPill(o.status) else StatusText(o.status)
         }
     }
 }

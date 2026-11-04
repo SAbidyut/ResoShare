@@ -1,6 +1,7 @@
 package net.rapti.resoshare.admin
 
 import androidx.compose.foundation.background
+import net.rapti.resoshare.core.i18n.t
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -62,19 +63,19 @@ fun DividendScreen(an: AdminNav) {
 
     fun validate(): Boolean {
         val y = Bn.ascii(year).trim()
-        errYear = if (!Regex("^\\d{4}$").matches(y)) "অর্থবছর ৪ অঙ্কে লিখুন (যেমন ২০২৬)"
-        else if (data?.items?.any { it.fiscalYear == y } == true) "এই অর্থবছরের ডিভিডেন্ড আগেই ঘোষণা হয়েছে" else null
-        errPer = if (per == null) "প্রতি শেয়ারে ডিভিডেন্ডের পরিমাণ দিন" else null
-        errDate = if (date == null) "বিতরণের তারিখ বাছাই করুন" else null
+        errYear = if (!Regex("^\\d{4}$").matches(y)) t("অর্থবছর ৪ অঙ্কে লিখুন (যেমন ২০২৬)", "Enter the fiscal year as 4 digits (e.g. 2026)")
+        else if (data?.items?.any { it.fiscalYear == y } == true) t("এই অর্থবছরের ডিভিডেন্ড আগেই ঘোষণা হয়েছে", "A dividend for this fiscal year was already declared") else null
+        errPer = if (per == null) t("প্রতি শেয়ারে ডিভিডেন্ডের পরিমাণ দিন", "Enter the dividend per share") else null
+        errDate = if (date == null) t("বিতরণের তারিখ বাছাই করুন", "Pick the distribution date") else null
         return errYear == null && errPer == null && errDate == null
     }
 
     AdminScreen(
         header = {
-            ScreenHeader("ডিভিডেন্ড", onBack = an::back) {
+            ScreenHeader(t("ডিভিডেন্ড", "Dividend"), onBack = an::back) {
                 Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                    HeaderStat("শেষ ঘোষণা", last?.let { "${Bn.digits(it.fiscalYear)} অর্থবছর" } ?: "—", Modifier.weight(1f))
-                    HeaderStat("সর্বশেষ মোট বিতরণ", last?.let { Bn.money(it.totalPaisa) } ?: "—", Modifier.weight(1f))
+                    HeaderStat(t("শেষ ঘোষণা", "Last declared"), last?.let { t("${Bn.digits(it.fiscalYear)} অর্থবছর", "FY ${it.fiscalYear}") } ?: "—", Modifier.weight(1f))
+                    HeaderStat(t("সর্বশেষ মোট বিতরণ", "Latest total paid"), last?.let { Bn.money(it.totalPaisa) } ?: "—", Modifier.weight(1f))
                 }
             }
         },
@@ -86,64 +87,64 @@ fun DividendScreen(an: AdminNav) {
                 val c = Reso.colors
                 ResoCard {
                     Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
-                        T("নতুন ডিভিডেন্ড ঘোষণা", 17.sp, FontWeight.Bold)
-                        Field("অর্থবছর", year, { year = it.take(4); errYear = null }, keyboard = KeyboardType.Number, error = errYear, placeholder = "যেমন ২০২৬")
-                        Field("প্রতি শেয়ারে ডিভিডেন্ড (৳)", perShare, { perShare = it.filter { ch -> ch.isDigit() || ch == '.' || ch == ',' }; errPer = null },
-                            keyboard = KeyboardType.Decimal, error = errPer, placeholder = "যেমন ৮০.০০", maxLength = 14)
-                        DateField("বিতরণের তারিখ", date, { date = it; errDate = null }, min = Bn.today())
+                        T(t("নতুন ডিভিডেন্ড ঘোষণা", "Declare a new dividend"), 17.sp, FontWeight.Bold)
+                        Field(t("অর্থবছর", "Fiscal year"), year, { year = it.take(4); errYear = null }, keyboard = KeyboardType.Number, error = errYear, placeholder = t("যেমন ২০২৬", "e.g. 2026"))
+                        Field(t("প্রতি শেয়ারে ডিভিডেন্ড (৳)", "Dividend per share (৳)"), perShare, { perShare = it.filter { ch -> ch.isDigit() || ch == '.' || ch == ',' }; errPer = null },
+                            keyboard = KeyboardType.Decimal, error = errPer, placeholder = t("যেমন ৮০.০০", "e.g. 80.00"), maxLength = 14)
+                        DateField(t("বিতরণের তারিখ", "Distribution date"), date, { date = it; errDate = null }, min = Bn.today())
                         if (errDate != null) T(errDate ?: "", 13.sp, color = c.red)
                         Column(
                             Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).background(c.bg).padding(14.dp),
                             verticalArrangement = Arrangement.spacedBy(6.dp),
                         ) {
-                            KeyValue("বিক্রিত শেয়ার", "${Bn.num(sold)}টি", size = 14.sp)
-                            KeyValue("প্রতি শেয়ার", per?.let { Bn.money(it) } ?: "—", size = 14.sp)
+                            KeyValue(t("বিক্রিত শেয়ার", "Shares sold"), t("${Bn.num(sold)}টি", Bn.num(sold)), size = 14.sp)
+                            KeyValue(t("প্রতি শেয়ার", "Per share"), per?.let { Bn.money(it) } ?: "—", size = 14.sp)
                             RowDivider(Modifier.padding(vertical = 4.dp))
                             Row(verticalAlignment = Alignment.CenterVertically) {
-                                T("মোট বিতরণ হবে", 15.sp, FontWeight.Bold, modifier = Modifier.weight(1f))
+                                T(t("মোট বিতরণ হবে", "Total to be paid"), 15.sp, FontWeight.Bold, modifier = Modifier.weight(1f))
                                 T(Bn.money(total), 22.sp, FontWeight.Bold)
                             }
                         }
-                        PrimaryButton("ডিভিডেন্ড ঘোষণা করুন", { if (validate()) confirm = true }, loading = action.busy)
+                        PrimaryButton(t("ডিভিডেন্ড ঘোষণা করুন", "Declare dividend"), { if (validate()) confirm = true }, loading = action.busy)
                     }
                 }
             }
             item("history") {
                 ResoCard {
-                    T("আগের ডিভিডেন্ড", 17.sp, FontWeight.Bold)
-                    if (d.items.isEmpty()) EmptyBlock("এখনো কোনো ডিভিডেন্ড ঘোষণা হয়নি", ResoIcons.Dollar)
+                    T(t("আগের ডিভিডেন্ড", "Previous dividends"), 17.sp, FontWeight.Bold)
+                    if (d.items.isEmpty()) EmptyBlock(t("এখনো কোনো ডিভিডেন্ড ঘোষণা হয়নি", "No dividends declared yet"), ResoIcons.Dollar)
                     d.items.forEach { v ->
                         RowDivider(Modifier.padding(vertical = 8.dp))
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                                T("${Bn.digits(v.fiscalYear)} অর্থবছর", 16.sp, FontWeight.Bold)
-                                T("প্রতি শেয়ারে ${Bn.money(v.perSharePaisa)} · ${Bn.num(v.totalShares)}টি শেয়ার", 13.sp, color = Reso.colors.muted)
-                                T("বিতরণ: ${Bn.date(v.distributionDate)}", 13.sp, color = Reso.colors.muted)
+                                T(t("${Bn.digits(v.fiscalYear)} অর্থবছর", "FY ${v.fiscalYear}"), 16.sp, FontWeight.Bold)
+                                T(t("প্রতি শেয়ারে ${Bn.money(v.perSharePaisa)} · ${Bn.num(v.totalShares)}টি শেয়ার", "${Bn.money(v.perSharePaisa)} per share · ${Bn.num(v.totalShares)} shares"), 13.sp, color = Reso.colors.muted)
+                                T(t("বিতরণ: ${Bn.date(v.distributionDate)}", "Paid on: ${Bn.date(v.distributionDate)}"), 13.sp, color = Reso.colors.muted)
                             }
                             Column(horizontalAlignment = Alignment.End, verticalArrangement = Arrangement.spacedBy(4.dp)) {
                                 T(Bn.money(v.totalPaisa), 16.sp, FontWeight.Bold)
                                 val c = Reso.colors
-                                if (v.status == "distributed") Tag("বিতরণ সম্পন্ন", c.successBg, c.green) else Tag("ঘোষিত", c.warnBg, c.brown)
+                                if (v.status == "distributed") Tag(t("বিতরণ সম্পন্ন", "Distributed"), c.successBg, c.green) else Tag(t("ঘোষিত", "Declared"), c.warnBg, c.brown)
                             }
                         }
                     }
                 }
             }
             item("note") {
-                InfoBox("সংখ্যাগুলো সার্ভারের হিসাব অনুযায়ী। ডিভিডেন্ড ঘোষণার নিয়ম ও করের হিসাব আপনার অডিটর বা আইনজীবীর সঙ্গে যাচাই করে নিন। ঘোষণা করলে সব শেয়ারহোল্ডার অ্যাপের নোটিশে জানতে পারবেন।")
+                InfoBox(t("সংখ্যাগুলো সার্ভারের হিসাব অনুযায়ী। ডিভিডেন্ড ঘোষণার নিয়ম ও করের হিসাব আপনার অডিটর বা আইনজীবীর সঙ্গে যাচাই করে নিন। ঘোষণা করলে সব শেয়ারহোল্ডার অ্যাপের নোটিশে জানতে পারবেন।", "Figures are calculated by the server. Check dividend rules and tax with your auditor or lawyer. All shareholders are notified in the app once you declare."))
             }
         }
     }
     if (confirm) ConfirmDialog(
-        "ডিভিডেন্ড ঘোষণা করবেন?",
-        "${Bn.digits(Bn.ascii(year))} অর্থবছর · প্রতি শেয়ারে ${Bn.money(per ?: 0)} · মোট ${Bn.money(total)}। বিতরণ: ${date?.let { Bn.date(it) } ?: ""}। ঘোষণার পর এটি বদলানো যাবে না।",
-        "ঘোষণা করুন",
+        t("ডিভিডেন্ড ঘোষণা করবেন?", "Declare this dividend?"),
+        t("${Bn.digits(Bn.ascii(year))} অর্থবছর · প্রতি শেয়ারে ${Bn.money(per ?: 0)} · মোট ${Bn.money(total)}। বিতরণ: ${date?.let { Bn.date(it) } ?: ""}। ঘোষণার পর এটি বদলানো যাবে না।", "FY ${Bn.ascii(year)} · ${Bn.money(per ?: 0)} per share · total ${Bn.money(total)}. Paid on: ${date?.let { Bn.date(it) } ?: ""}. This can't be changed after declaring."),
+        t("ঘোষণা করুন", "Declare"),
         {
             confirm = false
             val p = per ?: return@ConfirmDialog
             val dt = date ?: return@ConfirmDialog
             action.run({ Graph.adminApi.declareDividend(DividendRequest(Bn.ascii(year).trim(), p, dt.toString())) }) {
-                Toaster.show("ডিভিডেন্ড ঘোষণা হয়েছে")
+                Toaster.show(t("ডিভিডেন্ড ঘোষণা হয়েছে", "Dividend declared"))
                 perShare = ""; date = null
                 loader.load(silent = true)
             }

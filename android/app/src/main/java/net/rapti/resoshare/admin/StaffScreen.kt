@@ -1,6 +1,7 @@
 package net.rapti.resoshare.admin
 
 import androidx.compose.foundation.horizontalScroll
+import net.rapti.resoshare.core.i18n.t
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -82,19 +83,19 @@ fun StaffScreen(an: AdminNav) {
 
     AdminScreen(
         header = {
-            ScreenHeader("ইউজার ও রোল", onBack = an::back, actions = {
-                if (can && data != null) CircleIconButton(ResoIcons.Plus, "নতুন স্টাফ যোগ করুন", { adding = true }, bg = Brand.Amber, fg = Brand.Navy)
+            ScreenHeader(t("ইউজার ও রোল", "Users & roles"), onBack = an::back, actions = {
+                if (can && data != null) CircleIconButton(ResoIcons.Plus, t("নতুন স্টাফ যোগ করুন", "Add staff"), { adding = true }, bg = Brand.Amber, fg = Brand.Navy)
             })
         },
         refreshing = loader.refreshing,
         onRefresh = { loader.refresh() },
     ) {
-        if (!can) item("np") { InfoBox("এই অংশ শুধু সুপার অ্যাডমিন (সেটিংস ও স্টাফ অনুমতি) দেখতে পারেন।", tone = Tone.WARN) }
+        if (!can) item("np") { InfoBox(t("এই অংশ শুধু সুপার অ্যাডমিন (সেটিংস ও স্টাফ অনুমতি) দেখতে পারেন।", "Only super admins (settings & staff permission) can see this."), tone = Tone.WARN) }
         else loadItems(loader.state, { loader.load() }) { d ->
             item("staff") {
                 ResoCard {
-                    T("স্টাফ (${Bn.num(d.items.size)} জন)", 17.sp, FontWeight.Bold)
-                    if (d.items.isEmpty()) EmptyBlock("কোনো স্টাফ নেই", ResoIcons.Users)
+                    T(t("স্টাফ (${Bn.num(d.items.size)} জন)", "Staff (${Bn.num(d.items.size)})"), 17.sp, FontWeight.Bold)
+                    if (d.items.isEmpty()) EmptyBlock(t("কোনো স্টাফ নেই", "No staff"), ResoIcons.Users)
                     d.items.forEach { s ->
                         RowDivider(Modifier.padding(vertical = 6.dp))
                         StaffRow(s) { editing = s }
@@ -102,9 +103,9 @@ fun StaffScreen(an: AdminNav) {
                 }
             }
             item("matrix") { PermissionMatrix(d.roles) { r -> if (!r.isSystem) roleEdit = r } }
-            item("newrole") { SecondaryButton("নতুন রোল তৈরি করুন", { newRole = true }, icon = ResoIcons.Plus) }
+            item("newrole") { SecondaryButton(t("নতুন রোল তৈরি করুন", "Create a new role"), { newRole = true }, icon = ResoIcons.Plus) }
             item("note") {
-                InfoBox("নতুন স্টাফ প্রথম লগইনে অস্থায়ী পাসওয়ার্ড বদলাবেন এবং Authenticator অ্যাপে OTP সেটআপ করবেন। সিস্টেম রোল বদলানো যায় না; কাস্টম রোলের নামে চাপ দিয়ে সম্পাদনা করুন।")
+                InfoBox(t("নতুন স্টাফ প্রথম লগইনে অস্থায়ী পাসওয়ার্ড বদলাবেন এবং Authenticator অ্যাপে OTP সেটআপ করবেন। সিস্টেম রোল বদলানো যায় না; কাস্টম রোলের নামে চাপ দিয়ে সম্পাদনা করুন।", "New staff change the temporary password and set up OTP in an Authenticator app at first login. System roles can't be changed; tap a custom role's name to edit it."))
             }
         }
     }
@@ -123,25 +124,25 @@ fun StaffScreen(an: AdminNav) {
     if (newRole) RoleDialog(null, onDismiss = { newRole = false }) { newRole = false; loader.load(silent = true) }
     roleEdit?.let { r -> RoleDialog(r, onDismiss = { roleEdit = null }) { roleEdit = null; loader.load(silent = true) } }
     secret?.let { (name, pw) ->
-        SecretDialog("অস্থায়ী পাসওয়ার্ড · $name", pw, "এটি শুধু একবার দেখানো হবে। নিরাপদভাবে সরাসরি স্টাফকে দিন। প্রথম লগইনে পাসওয়ার্ড বদলাতে ও OTP সেটআপ করতে হবে।") { secret = null }
+        SecretDialog(t("অস্থায়ী পাসওয়ার্ড · $name", "Temporary password · $name"), pw, t("এটি শুধু একবার দেখানো হবে। নিরাপদভাবে সরাসরি স্টাফকে দিন। প্রথম লগইনে পাসওয়ার্ড বদলাতে ও OTP সেটআপ করতে হবে।", "Shown only once. Give it to the staff member in person. They must change it and set up OTP at first login.")) { secret = null }
     }
 }
 
 private fun lastActive(iso: String?): String {
-    val z = Bn.parseInstant(iso) ?: return "এখনো লগইন করেননি"
+    val z = Bn.parseInstant(iso) ?: return t("এখনো লগইন করেননি", "Never logged in")
     val days = java.time.temporal.ChronoUnit.DAYS.between(z.toLocalDate(), Bn.today())
     return when {
-        days <= 0L -> "আজ সক্রিয়"
-        days == 1L -> "গতকাল সক্রিয়"
-        else -> "${Bn.num(days)} দিন আগে"
+        days <= 0L -> t("আজ সক্রিয়", "Active today")
+        days == 1L -> t("গতকাল সক্রিয়", "Active yesterday")
+        else -> t("${Bn.num(days)} দিন আগে", "${Bn.num(days)} days ago")
     }
 }
 
 @Composable
 private fun RoleTag(s: Staff) {
     val c = Reso.colors
-    if (s.roleKey == "super_admin") Tag(s.roleName, Brand.Navy, Brand.Gold, size = 13.sp)
-    else Tag(s.roleName, c.tagBlueBg, c.tagBlueText, size = 13.sp)
+    if (s.roleKey == "super_admin") Tag(roleLabel(s.roleKey, s.roleName), Brand.Navy, Brand.Gold, size = 13.sp)
+    else Tag(roleLabel(s.roleKey, s.roleName), c.tagBlueBg, c.tagBlueText, size = 13.sp)
 }
 
 @Composable
@@ -156,7 +157,7 @@ private fun StaffRow(s: Staff, onClick: () -> Unit) {
         Column(Modifier.weight(1f)) {
             T(s.name, 16.sp, FontWeight.Bold, maxLines = 1)
             T(
-                if (s.status != "active") "নিষ্ক্রিয়" else lastActive(s.lastActiveAt) + if (!s.mfaEnrolled) " · OTP সেটআপ বাকি" else "",
+                if (s.status != "active") t("নিষ্ক্রিয়", "Disabled") else lastActive(s.lastActiveAt) + if (!s.mfaEnrolled) t(" · OTP সেটআপ বাকি", " · OTP not set up") else "",
                 13.sp, color = if (s.status != "active") c.red else c.muted, maxLines = 1,
             )
         }
@@ -168,7 +169,7 @@ private fun StaffRow(s: Staff, onClick: () -> Unit) {
 private fun PermissionMatrix(roles: List<Role>, onRole: (Role) -> Unit) {
     val c = Reso.colors
     ResoCard {
-        T("রোল অনুযায়ী অনুমতি", 17.sp, FontWeight.Bold)
+        T(t("রোল অনুযায়ী অনুমতি", "Permissions by role"), 17.sp, FontWeight.Bold)
         BoxWithConstraints(Modifier.fillMaxWidth().padding(top = 10.dp)) {
             val labelW = 112.dp
             // Fit all role columns when possible; scroll horizontally only when there are many roles.
@@ -176,24 +177,24 @@ private fun PermissionMatrix(roles: List<Role>, onRole: (Role) -> Unit) {
             Box(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState())) {
                 Column {
                     Row(verticalAlignment = Alignment.Bottom) {
-                        T("অনুমতি", 13.sp, color = c.muted, modifier = Modifier.width(labelW))
+                        T(t("অনুমতি", "Permission"), 13.sp, color = c.muted, modifier = Modifier.width(labelW))
                         roles.forEach { r ->
                             Box(
                                 Modifier.width(colW).heightIn(min = 36.dp).then(if (!r.isSystem) Modifier.pressable(onClick = { onRole(r) }) else Modifier),
                                 contentAlignment = Alignment.BottomCenter,
                             ) {
-                                T(r.name.substringBefore(' '), 12.sp, FontWeight.Bold, if (r.isSystem) c.muted else c.ink, align = TextAlign.Center, maxLines = 2)
+                                T(roleLabel(r.key, r.name).substringBefore(' '), 12.sp, FontWeight.Bold, if (r.isSystem) c.muted else c.ink, align = TextAlign.Center, maxLines = 2)
                             }
                         }
                     }
                     Perm.ALL.forEach { p ->
                         RowDivider(Modifier.padding(vertical = 6.dp).width(labelW + colW * roles.size))
                         Row(verticalAlignment = Alignment.CenterVertically) {
-                            T(Perm.label(p), 14.sp, modifier = Modifier.width(labelW), maxLines = 2)
+                            T(permLabel(p), 14.sp, modifier = Modifier.width(labelW), maxLines = 2)
                             roles.forEach { r ->
                                 Box(Modifier.width(colW), contentAlignment = Alignment.Center) {
-                                    if (p in r.permissions) Icon(ResoIcons.Check, "আছে", tint = c.green, modifier = Modifier.size(20.dp))
-                                    else T("না", 13.sp, color = c.muted)
+                                    if (p in r.permissions) Icon(ResoIcons.Check, t("আছে", "Allowed"), tint = c.green, modifier = Modifier.size(20.dp))
+                                    else T(t("না", "No"), 13.sp, color = c.muted)
                                 }
                             }
                         }
@@ -216,14 +217,14 @@ private fun AddStaffDialog(roles: List<Role>, onDismiss: () -> Unit, onCreated: 
     AlertDialog(
         onDismissRequest = { if (!action.busy) onDismiss() },
         containerColor = c.surface,
-        title = { T("নতুন স্টাফ যোগ করুন", 19.sp, FontWeight.Bold) },
+        title = { T(t("নতুন স্টাফ যোগ করুন", "Add staff"), 19.sp, FontWeight.Bold) },
         text = {
             Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                Field("নাম", name, { name = it; errors = errors - "name" }, error = errors["name"], maxLength = 100)
-                Field("ইমেইল", email, { email = it.trim(); errors = errors - "email" }, keyboard = KeyboardType.Email, error = errors["email"], maxLength = 254)
-                Field("মোবাইল", mobile, { mobile = it; errors = errors - "mobile" }, keyboard = KeyboardType.Phone, error = errors["mobile"], placeholder = "০১৭XXXXXXXX", maxLength = 20)
-                T("রোল", 14.sp, FontWeight.Bold)
-                roles.forEach { r -> RadioCard(roleId == r.id, r.name, null, { roleId = r.id }, subtitle = r.permissions.joinToString(", ") { Perm.label(it) }) }
+                Field(t("নাম", "Name"), name, { name = it; errors = errors - "name" }, error = errors["name"], maxLength = 100)
+                Field(t("ইমেইল", "Email"), email, { email = it.trim(); errors = errors - "email" }, keyboard = KeyboardType.Email, error = errors["email"], maxLength = 254)
+                Field(t("মোবাইল", "Mobile"), mobile, { mobile = it; errors = errors - "mobile" }, keyboard = KeyboardType.Phone, error = errors["mobile"], placeholder = t("০১৭XXXXXXXX", "017XXXXXXXX"), maxLength = 20)
+                T(t("রোল", "Role"), 14.sp, FontWeight.Bold)
+                roles.forEach { r -> RadioCard(roleId == r.id, roleLabel(r.key, r.name), null, { roleId = r.id }, subtitle = r.permissions.joinToString(", ") { permLabel(it) }) }
             }
         },
         confirmButton = {
@@ -236,9 +237,9 @@ private fun AddStaffDialog(roles: List<Role>, onDismiss: () -> Unit, onCreated: 
                         onErr = { e -> if (e.fields.isNotEmpty()) errors = e.fields.mapValues { it.value } else Toaster.show(e.message) },
                     ) { onCreated(it.staff.name to it.tempPassword) }
                 }
-            }) { T(if (action.busy) "যোগ হচ্ছে…" else "যোগ করুন", 16.sp, FontWeight.Bold, c.ink) }
+            }) { T(if (action.busy) t("যোগ হচ্ছে…", "Adding…") else t("যোগ করুন", "Add"), 16.sp, FontWeight.Bold, c.ink) }
         },
-        dismissButton = { TextButton(onClick = onDismiss, enabled = !action.busy) { T("বাতিল", 16.sp, color = c.muted) } },
+        dismissButton = { TextButton(onClick = onDismiss, enabled = !action.busy) { T(t("বাতিল", "Cancel"), 16.sp, color = c.muted) } },
     )
 }
 
@@ -264,26 +265,26 @@ private fun StaffSheet(s: Staff, roles: List<Role>, onDismiss: () -> Unit, onCha
                     RoleTag(s)
                 }
             }
-            KeyValue("ইমেইল", s.email, size = 14.sp)
-            KeyValue("মোবাইল", Bn.digits(s.mobile), size = 14.sp)
-            KeyValue("শেষ সক্রিয়", lastActive(s.lastActiveAt), size = 14.sp)
-            KeyValue("OTP (Authenticator)", if (s.mfaEnrolled) "সেটআপ সম্পন্ন" else "সেটআপ বাকি", size = 14.sp)
+            KeyValue(t("ইমেইল", "Email"), s.email, size = 14.sp)
+            KeyValue(t("মোবাইল", "Mobile"), Bn.digits(s.mobile), size = 14.sp)
+            KeyValue(t("শেষ সক্রিয়", "Last active"), lastActive(s.lastActiveAt), size = 14.sp)
+            KeyValue("OTP (Authenticator)", if (s.mfaEnrolled) t("সেটআপ সম্পন্ন", "Set up") else t("সেটআপ বাকি", "Not set up"), size = 14.sp)
             if (self) {
-                InfoBox("নিজের রোল বা অবস্থা নিজে বদলানো যায় না। অন্য একজন সুপার অ্যাডমিনকে বলুন।", tone = Tone.WARN)
+                InfoBox(t("নিজের রোল বা অবস্থা নিজে বদলানো যায় না। অন্য একজন সুপার অ্যাডমিনকে বলুন।", "You can't change your own role or status. Ask another super admin."), tone = Tone.WARN)
             } else {
                 RowDivider()
-                T("রোল", 15.sp, FontWeight.Bold)
-                roles.forEach { r -> RadioCard(roleId == r.id, r.name, null, { roleId = r.id }) }
-                if (roleId != s.roleId) InkButton("রোল সংরক্ষণ করুন", {
-                    action.run({ Graph.adminApi.patchStaff(s.id, StaffPatch(roleId = roleId)) }) { Toaster.show("রোল বদলানো হয়েছে"); onChanged() }
+                T(t("রোল", "Role"), 15.sp, FontWeight.Bold)
+                roles.forEach { r -> RadioCard(roleId == r.id, roleLabel(r.key, r.name), null, { roleId = r.id }) }
+                if (roleId != s.roleId) InkButton(t("রোল সংরক্ষণ করুন", "Save role"), {
+                    action.run({ Graph.adminApi.patchStaff(s.id, StaffPatch(roleId = roleId)) }) { Toaster.show(t("রোল বদলানো হয়েছে", "Role changed")); onChanged() }
                 }, loading = action.busy)
                 RowDivider()
-                SecondaryButton("পাসওয়ার্ড ও OTP রিসেট", { confirmReset = true }, height = 50.dp, icon = ResoIcons.Key)
-                SecondaryButton("লগইন লক খুলুন", {
-                    action.run({ Graph.adminApi.unlockStaff(s.id) }) { Toaster.show("${s.name}-এর লগইন লক খোলা হয়েছে") }
+                SecondaryButton(t("পাসওয়ার্ড ও OTP রিসেট", "Reset password & OTP"), { confirmReset = true }, height = 50.dp, icon = ResoIcons.Key)
+                SecondaryButton(t("লগইন লক খুলুন", "Unlock login"), {
+                    action.run({ Graph.adminApi.unlockStaff(s.id) }) { Toaster.show(t("${s.name}-এর লগইন লক খোলা হয়েছে", "${s.name}'s login unlocked")) }
                 }, height = 50.dp, icon = ResoIcons.Lock, loading = action.busy)
-                if (s.status == "active") DangerButton("স্টাফ নিষ্ক্রিয় করুন", { confirmStatus = true })
-                else InkButton("স্টাফ আবার সক্রিয় করুন", { confirmStatus = true })
+                if (s.status == "active") DangerButton(t("স্টাফ নিষ্ক্রিয় করুন", "Disable staff"), { confirmStatus = true })
+                else InkButton(t("স্টাফ আবার সক্রিয় করুন", "Re-enable staff"), { confirmStatus = true })
             }
             Box(Modifier.padding(bottom = 12.dp))
         }
@@ -291,22 +292,22 @@ private fun StaffSheet(s: Staff, roles: List<Role>, onDismiss: () -> Unit, onCha
     if (confirmStatus) {
         val activate = s.status != "active"
         ConfirmDialog(
-            if (activate) "সক্রিয় করবেন?" else "নিষ্ক্রিয় করবেন?",
-            if (activate) "${s.name} আবার লগইন করতে পারবেন।" else "${s.name} এখনই লগআউট হবেন এবং আর লগইন করতে পারবেন না।",
-            if (activate) "সক্রিয় করুন" else "নিষ্ক্রিয় করুন",
+            if (activate) t("সক্রিয় করবেন?", "Enable?") else t("নিষ্ক্রিয় করবেন?", "Disable?"),
+            if (activate) t("${s.name} আবার লগইন করতে পারবেন।", "${s.name} will be able to log in again.") else t("${s.name} এখনই লগআউট হবেন এবং আর লগইন করতে পারবেন না।", "${s.name} is logged out now and can't log in again."),
+            if (activate) t("সক্রিয় করুন", "Enable") else t("নিষ্ক্রিয় করুন", "Disable"),
             {
                 confirmStatus = false
                 action.run({ Graph.adminApi.patchStaff(s.id, StaffPatch(status = if (activate) "active" else "disabled")) }) {
-                    Toaster.show(if (activate) "স্টাফ সক্রিয় হয়েছে" else "স্টাফ নিষ্ক্রিয় হয়েছে"); onChanged()
+                    Toaster.show(if (activate) t("স্টাফ সক্রিয় হয়েছে", "Staff enabled") else t("স্টাফ নিষ্ক্রিয় হয়েছে", "Staff disabled")); onChanged()
                 }
             },
             { confirmStatus = false }, danger = !activate,
         )
     }
     if (confirmReset) ConfirmDialog(
-        "পাসওয়ার্ড ও OTP রিসেট করবেন?",
-        "${s.name}-এর সব লগইন বাতিল হবে, একটি অস্থায়ী পাসওয়ার্ড তৈরি হবে এবং পরের লগইনে Authenticator আবার সেটআপ করতে হবে।",
-        "রিসেট করুন",
+        t("পাসওয়ার্ড ও OTP রিসেট করবেন?", "Reset password & OTP?"),
+        t("${s.name}-এর সব লগইন বাতিল হবে, একটি অস্থায়ী পাসওয়ার্ড তৈরি হবে এবং পরের লগইনে Authenticator আবার সেটআপ করতে হবে।", "All of ${s.name}'s logins end, a temporary password is created and the Authenticator must be set up again at next login."),
+        t("রিসেট করুন", "Reset"),
         {
             confirmReset = false
             action.run({ Graph.adminApi.resetStaff(s.id) }) { onSecret(s.name, it.tempPassword) }
@@ -325,17 +326,17 @@ private fun RoleDialog(role: Role?, onDismiss: () -> Unit, onSaved: () -> Unit) 
     AlertDialog(
         onDismissRequest = { if (!action.busy) onDismiss() },
         containerColor = c.surface,
-        title = { T(if (role == null) "নতুন রোল তৈরি করুন" else "রোল সম্পাদনা", 19.sp, FontWeight.Bold) },
+        title = { T(if (role == null) t("নতুন রোল তৈরি করুন", "Create a new role") else t("রোল সম্পাদনা", "Edit role"), 19.sp, FontWeight.Bold) },
         text = {
             Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Field("রোলের নাম", name, { name = it; err = null }, error = err, maxLength = 40, placeholder = "যেমন: হিসাব সহকারী")
-                T("অনুমতি", 14.sp, FontWeight.Bold)
+                Field(t("রোলের নাম", "Role name"), name, { name = it; err = null }, error = err, maxLength = 40, placeholder = t("যেমন: হিসাব সহকারী", "e.g. Accounts assistant"))
+                T(t("অনুমতি", "Permission"), 14.sp, FontWeight.Bold)
                 Perm.ALL.forEach { p ->
                     val fixed = p == Perm.VIEW
                     CheckRow(p in perms, { on -> if (!fixed) { if (on) perms.add(p) else perms.remove(p) } }, enabled = !fixed) {
                         Column {
-                            T(Perm.label(p), 15.sp)
-                            if (p == Perm.SETTINGS) T("স্টাফ, রোল ও সেটিংসের পূর্ণ নিয়ন্ত্রণ — সাবধানে দিন", 12.sp, color = c.red)
+                            T(permLabel(p), 15.sp)
+                            if (p == Perm.SETTINGS) T(t("স্টাফ, রোল ও সেটিংসের পূর্ণ নিয়ন্ত্রণ — সাবধানে দিন", "Full control of staff, roles and settings — grant carefully"), 12.sp, color = c.red)
                         }
                     }
                 }
@@ -343,14 +344,14 @@ private fun RoleDialog(role: Role?, onDismiss: () -> Unit, onSaved: () -> Unit) 
         },
         confirmButton = {
             TextButton(enabled = !action.busy, onClick = {
-                err = V.required(name, "রোলের নাম", 2, 40)
+                err = V.required(name, t("রোলের নাম", "a role name"), 2, 40)
                 if (err == null) {
                     val list = (perms + Perm.VIEW).distinct()
-                    if (role == null) action.run({ Graph.adminApi.createRole(RoleCreate(name.trim(), list)) }) { Toaster.show("রোল তৈরি হয়েছে"); onSaved() }
-                    else action.run({ Graph.adminApi.patchRole(role.id, RolePatch(name.trim(), list)) }) { Toaster.show("রোল হালনাগাদ হয়েছে"); onSaved() }
+                    if (role == null) action.run({ Graph.adminApi.createRole(RoleCreate(name.trim(), list)) }) { Toaster.show(t("রোল তৈরি হয়েছে", "Role created")); onSaved() }
+                    else action.run({ Graph.adminApi.patchRole(role.id, RolePatch(name.trim(), list)) }) { Toaster.show(t("রোল হালনাগাদ হয়েছে", "Role updated")); onSaved() }
                 }
-            }) { T("সংরক্ষণ করুন", 16.sp, FontWeight.Bold, c.ink) }
+            }) { T(t("সংরক্ষণ করুন", "Save"), 16.sp, FontWeight.Bold, c.ink) }
         },
-        dismissButton = { TextButton(onClick = onDismiss, enabled = !action.busy) { T("বাতিল", 16.sp, color = c.muted) } },
+        dismissButton = { TextButton(onClick = onDismiss, enabled = !action.busy) { T(t("বাতিল", "Cancel"), 16.sp, color = c.muted) } },
     )
 }

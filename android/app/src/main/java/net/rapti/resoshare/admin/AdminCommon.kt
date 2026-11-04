@@ -1,6 +1,7 @@
 package net.rapti.resoshare.admin
 
 import android.graphics.Bitmap
+import net.rapti.resoshare.core.i18n.t
 import android.graphics.BitmapFactory
 import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -38,6 +39,8 @@ import androidx.compose.material3.rememberDatePickerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -71,6 +74,8 @@ import net.rapti.resoshare.Toaster
 import net.rapti.resoshare.core.export.ExportFile
 import net.rapti.resoshare.core.export.Exporter
 import net.rapti.resoshare.core.format.Bn
+import net.rapti.resoshare.core.i18n.AppLang
+import net.rapti.resoshare.core.i18n.Lang
 import net.rapti.resoshare.core.net.ApiException
 import net.rapti.resoshare.core.net.Res
 import net.rapti.resoshare.core.net.call
@@ -238,7 +243,7 @@ fun <P, T> LazyListScope.pagedItems(
         is Load.Ready -> {
             if (pager.items.isEmpty()) item("empty") { net.rapti.resoshare.core.ui.EmptyBlock(empty) }
             val n = pager.items.size
-            itemsIndexed(pager.items, key = { _, it -> key(it) }) { i, it ->
+            itemsIndexed(pager.items, key = { _, it -> key(it) }, contentType = { _, _ -> "row" }) { i, it ->
                 Box(Modifier.animateItem()) { row(it, i == 0, i == n - 1) }
             }
             if (pager.hasMore) item("more") {
@@ -345,7 +350,7 @@ fun <T> LazyListScope.loadItems(
 fun LocalDate.toUtcMillis(): Long = atStartOfDay(ZoneOffset.UTC).toInstant().toEpochMilli()
 fun Long.utcMillisToDate(): LocalDate = Instant.ofEpochMilli(this).atZone(ZoneOffset.UTC).toLocalDate()
 
-/** Read-only field that opens a Material date picker. Shows the date in Bangla. */
+/** Read-only field that opens a Material date picker. Shows the date in the app language. */
 @Composable
 fun DateField(
     label: String,
@@ -354,7 +359,7 @@ fun DateField(
     modifier: Modifier = Modifier,
     min: LocalDate? = null,
     max: LocalDate? = null,
-    placeholder: String = "তারিখ বাছাই করুন",
+    placeholder: String = t("তারিখ বাছাই করুন", "Pick a date"),
     enabled: Boolean = true,
 ) {
     val c = Reso.colors
@@ -368,7 +373,7 @@ fun DateField(
                 .padding(horizontal = 16.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            T(date?.let { Bn.date(it) } ?: placeholder, 16.sp, color = if (date == null) c.muted else c.text, modifier = Modifier.weight(1f), maxLines = 1)
+            T(date?.let { fieldDate(it) } ?: placeholder, 16.sp, color = if (date == null) c.muted else c.text, modifier = Modifier.weight(1f), maxLines = 1)
             Icon(ResoIcons.Calendar, null, tint = c.muted, modifier = Modifier.size(20.dp))
         }
     }
@@ -388,12 +393,16 @@ fun DateField(
                 TextButton(onClick = {
                     state.selectedDateMillis?.let { onPick(it.utcMillisToDate()) }
                     open = false
-                }) { T("ঠিক আছে", 16.sp, FontWeight.Bold, c.ink) }
+                }) { T(t("ঠিক আছে", "OK"), 16.sp, FontWeight.Bold, c.ink) }
             },
-            dismissButton = { TextButton(onClick = { open = false }) { T("বাতিল", 16.sp, color = c.muted) } },
+            dismissButton = { TextButton(onClick = { open = false }) { T(t("বাতিল", "Cancel"), 16.sp, color = c.muted) } },
         ) { DatePicker(state = state, showModeToggle = false) }
     }
 }
+
+/** Date shown inside compact date fields: "০১ নভেম্বর ২০২৬" / "01 Nov 2026". */
+fun fieldDate(d: LocalDate): String =
+    if (Lang.isEn) "${d.dayOfMonth.toString().padStart(2, '0')} ${Bn.monthShort(d.monthValue)} ${d.year}" else Bn.date(d)
 
 // ---------------------------------------------------------------- export (save / share)
 
@@ -407,8 +416,8 @@ fun rememberFileSaver(): FileSaver {
         val f = pending.value
         if (uri != null && f != null) {
             runCatching { Exporter.writeTo(ctx, uri, f) }
-                .onSuccess { Toaster.show("ফাইল সংরক্ষণ হয়েছে") }
-                .onFailure { Toaster.show("ফাইল সংরক্ষণ করা যায়নি") }
+                .onSuccess { Toaster.show(t("ফাইল সংরক্ষণ হয়েছে", "File saved")) }
+                .onFailure { Toaster.show(t("ফাইল সংরক্ষণ করা যায়নি", "Could not save the file")) }
         }
         pending.value = null
     }
@@ -425,11 +434,11 @@ fun rememberFileSaver(): FileSaver {
                         MIME_XLSX -> xlsx.launch(f.name)
                         else -> csv.launch(f.name)
                     }
-                }.onFailure { Toaster.show("ফাইল সংরক্ষণের অ্যাপ পাওয়া যায়নি") }
+                }.onFailure { Toaster.show(t("ফাইল সংরক্ষণের অ্যাপ পাওয়া যায়নি", "No app found to save the file")) }
             },
             share = { f ->
                 runCatching { ctx.startActivity(Exporter.shareIntent(ctx, f)) }
-                    .onFailure { Toaster.show("শেয়ার করা যায়নি") }
+                    .onFailure { Toaster.show(t("শেয়ার করা যায়নি", "Could not share")) }
             },
         )
     }
@@ -466,8 +475,8 @@ fun FormatDialog(title: String, onPick: (ExportFormat) -> Unit, onDismiss: () ->
                 }
             }
         },
-        confirmButton = { TextButton(onClick = { onPick(sel) }) { T("তৈরি করুন", 16.sp, FontWeight.Bold, c.ink) } },
-        dismissButton = { TextButton(onClick = onDismiss) { T("বাতিল", 16.sp, color = c.muted) } },
+        confirmButton = { TextButton(onClick = { onPick(sel) }) { T(t("তৈরি করুন", "Create"), 16.sp, FontWeight.Bold, c.ink) } },
+        dismissButton = { TextButton(onClick = onDismiss) { T(t("বাতিল", "Cancel"), 16.sp, color = c.muted) } },
     )
 }
 
@@ -478,15 +487,15 @@ fun ExportReadyDialog(file: ExportFile, saver: FileSaver, onDismiss: () -> Unit)
         onDismissRequest = onDismiss,
         containerColor = c.surface,
         icon = { Icon(ResoIcons.Document, null, tint = c.ink, modifier = Modifier.size(32.dp)) },
-        title = { T("ফাইল তৈরি হয়েছে", 19.sp, FontWeight.Bold) },
+        title = { T(t("ফাইল তৈরি হয়েছে", "File ready"), 19.sp, FontWeight.Bold) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 T(file.name, 14.sp, color = c.textSoft)
-                PrimaryButton("ডিভাইসে সংরক্ষণ করুন", { saver.save(file); onDismiss() }, icon = ResoIcons.Download, height = 50.dp)
-                SecondaryButton("শেয়ার করুন", { saver.share(file); onDismiss() }, icon = ResoIcons.Share, height = 50.dp)
+                PrimaryButton(t("ডিভাইসে সংরক্ষণ করুন", "Save to device"), { saver.save(file); onDismiss() }, icon = ResoIcons.Download, height = 50.dp)
+                SecondaryButton(t("শেয়ার করুন", "Share"), { saver.share(file); onDismiss() }, icon = ResoIcons.Share, height = 50.dp)
             }
         },
-        confirmButton = { TextButton(onClick = onDismiss) { T("বন্ধ করুন", 16.sp, color = c.muted) } },
+        confirmButton = { TextButton(onClick = onDismiss) { T(t("বন্ধ করুন", "Close"), 16.sp, color = c.muted) } },
     )
 }
 
@@ -507,7 +516,7 @@ fun rememberReportExport(type: String, title: String): Pair<ReportExport, @Compo
         }, onDismiss = { picking = false })
         ready?.let { ExportReadyDialog(it, saver) { ready = null } }
     }
-    return ReportExport({ if (AdminSession.can("reports")) picking = true else Toaster.show("রিপোর্টের অনুমতি আপনার নেই") }, action.busy) to ui
+    return ReportExport({ if (AdminSession.can("reports")) picking = true else Toaster.show(t("রিপোর্টের অনুমতি আপনার নেই", "You don't have permission for reports")) }, action.busy) to ui
 }
 
 // ---------------------------------------------------------------- KYC image viewer
@@ -515,7 +524,7 @@ fun rememberReportExport(type: String, title: String): Pair<ReportExport, @Compo
 @Composable
 fun KycImageViewer(fileId: String, title: String, onDismiss: () -> Unit) {
     var state by remember { mutableStateOf<Load<Bitmap>>(Load.Loading) }
-    var attempt by remember { mutableStateOf(0) }
+    var attempt by remember { mutableIntStateOf(0) }
     LaunchedEffect(fileId, attempt) {
         state = Load.Loading
         state = when (val r = call {
@@ -523,7 +532,7 @@ fun KycImageViewer(fileId: String, title: String, onDismiss: () -> Unit) {
             withContext(Dispatchers.IO) {
                 body.use { b ->
                     val bytes = b.bytes()
-                    BitmapFactory.decodeByteArray(bytes, 0, bytes.size) ?: throw ApiException("BAD_RESPONSE", "ছবিটি খোলা যায়নি")
+                    BitmapFactory.decodeByteArray(bytes, 0, bytes.size) ?: throw ApiException("BAD_RESPONSE", t("ছবিটি খোলা যায়নি", "Could not open the image"))
                 }
             }
         }) {
@@ -539,9 +548,9 @@ fun KycImageViewer(fileId: String, title: String, onDismiss: () -> Unit) {
                     ErrorBlock(s.message, { attempt++ })
                 }
                 is Load.Ready -> {
-                    var scale by remember { mutableStateOf(1f) }
-                    var ox by remember { mutableStateOf(0f) }
-                    var oy by remember { mutableStateOf(0f) }
+                    var scale by remember { mutableFloatStateOf(1f) }
+                    var ox by remember { mutableFloatStateOf(0f) }
+                    var oy by remember { mutableFloatStateOf(0f) }
                     Image(
                         s.data.asImageBitmap(),
                         contentDescription = title,
@@ -562,24 +571,82 @@ fun KycImageViewer(fileId: String, title: String, onDismiss: () -> Unit) {
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 T(title, 18.sp, FontWeight.Bold, Color.White, modifier = Modifier.weight(1f))
-                net.rapti.resoshare.core.ui.CircleIconButton(ResoIcons.Close, "বন্ধ করুন", onDismiss, bg = Color.White.copy(alpha = 0.15f))
+                net.rapti.resoshare.core.ui.CircleIconButton(ResoIcons.Close, t("বন্ধ করুন", "Close"), onDismiss, bg = Color.White.copy(alpha = 0.15f))
             }
         }
     }
 }
 
-fun kycLabel(kind: String) = when (kind) {
-    "nid_front" -> "NID সামনে"
-    "nid_back" -> "NID পেছনে"
-    else -> "ছবি"
+/** Permission names shown in the admin UI. */
+fun permLabel(p: String) = when (p) {
+    "view" -> t("তথ্য দেখা", "View data")
+    "kyc_approve" -> t("KYC অনুমোদন", "KYC approval")
+    "payment_approve" -> t("পেমেন্ট অনুমোদন", "Payment approval")
+    "rate_change" -> t("রেট বদল", "Change rate")
+    "dividend" -> t("ডিভিডেন্ড", "Dividend")
+    "notices_rules" -> t("নোটিশ ও নিয়ম", "Notices & rules")
+    "reports" -> t("রিপোর্ট", "Reports")
+    "settings_staff" -> t("সেটিংস ও স্টাফ", "Settings & staff")
+    else -> p
 }
 
-/** Day header text for grouped lists: "আজ · ০২ নভেম্বর" / "গতকাল · ০১ নভেম্বর" / date. */
-fun dayHeader(d: LocalDate): String {
-    val t = Bn.today()
-    return when (d) {
-        t -> "আজ · ${Bn.dayMonth(d)}"
-        t.minusDays(1) -> "গতকাল · ${Bn.dayMonth(d)}"
-        else -> Bn.date(d)
+/** Display name of a role: built-in roles are translated, custom roles keep their own name. */
+fun roleLabel(key: String?, name: String?): String = when (key) {
+    "super_admin" -> t("সুপার অ্যাডমিন", "Super admin")
+    "accounts" -> t("অ্যাকাউন্টস", "Accounts")
+    "kyc_officer" -> t("KYC অফিসার", "KYC officer")
+    "support" -> t("সাপোর্ট", "Support")
+    else -> name.orEmpty()
+}
+
+fun kycLabel(kind: String) = when (kind) {
+    "nid_front" -> t("NID সামনে", "NID front")
+    "nid_back" -> t("NID পেছনে", "NID back")
+    else -> t("ছবি", "Photo")
+}
+
+/** Day header text for grouped lists ("Today · 02 November" / "Yesterday · …" / date). */
+fun dayHeader(d: LocalDate): String = Bn.dayHeader(d)
+
+// ---------------------------------------------------------------- language
+
+/** Compact বাংলা | English switch (login header, menus). */
+@Composable
+fun LangChips(modifier: Modifier = Modifier, onDark: Boolean = false) {
+    val c = Reso.colors
+    val cur = Lang.state.value
+    Row(
+        modifier.clip(RoundedCornerShape(20.dp)).background(if (onDark) c.headerChip else c.segmentBg).padding(3.dp),
+        horizontalArrangement = Arrangement.spacedBy(2.dp),
+    ) {
+        listOf(AppLang.BN to "বাংলা", AppLang.EN to "English").forEach { (l, label) ->
+            val sel = cur == l
+            val bg = if (!sel) Color.Transparent else if (onDark) Brand.Amber else c.ink
+            val fg = if (sel) (if (onDark) Brand.Navy else c.onInk) else (if (onDark) Brand.HeaderMuted else c.text)
+            Box(
+                Modifier.clip(RoundedCornerShape(17.dp)).background(bg)
+                    .clickable(role = Role.Tab) { Lang.set(l) }
+                    .padding(horizontal = 12.dp, vertical = 5.dp),
+            ) { T(label, 13.sp, FontWeight.Bold, fg, maxLines = 1) }
+        }
+    }
+}
+
+/** Two large pill buttons বাংলা / English (settings "ভাষা" card). */
+@Composable
+fun LangPills(modifier: Modifier = Modifier) {
+    val c = Reso.colors
+    val cur = Lang.state.value
+    Row(modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+        listOf(AppLang.BN to "বাংলা", AppLang.EN to "English").forEach { (l, label) ->
+            val sel = cur == l
+            val shape = RoundedCornerShape(24.dp)
+            Box(
+                Modifier.weight(1f).heightIn(min = 46.dp).clip(shape).background(if (sel) c.ink else c.surface)
+                    .border(1.5.dp, c.ink, shape)
+                    .clickable(role = Role.Tab) { Lang.set(l) },
+                contentAlignment = Alignment.Center,
+            ) { T(label, 15.sp, FontWeight.Bold, if (sel) c.onInk else c.text, maxLines = 1) }
+        }
     }
 }
