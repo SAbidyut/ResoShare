@@ -41,7 +41,7 @@ object Exporter {
     fun safeCell(v: String): String = if (v.isNotEmpty() && v[0] in "=+-@\t\r") "'$v" else v
 
     fun csv(report: Report): ExportFile {
-        val sb = StringBuilder("﻿") // BOM so Excel shows Bangla correctly
+        val sb = StringBuilder().append('\uFEFF') // BOM so Excel shows Bangla correctly
         fun line(cells: List<String>) = cells.joinToString(",") { c ->
             val v = safeCell(c)
             if (v.any { it == ',' || it == '"' || it == '\n' || it == '\r' }) "\"" + v.replace("\"", "\"\"") + "\"" else v
@@ -139,11 +139,12 @@ object Exporter {
         newPage()
         val zebra = Paint().apply { color = Color.rgb(243, 245, 249) }
         report.rows.forEachIndexed { r, row ->
-            val rh = row.maxOfOrNull { StaticLayout.Builder.obtain(it, 0, it.length, body, colW - 8).build().height }?.plus(10f) ?: 20f
+            val rh = row.maxOfOrNull { val t = Bn.digits(it); StaticLayout.Builder.obtain(t, 0, t.length, body, colW - 8).build().height }?.plus(10f) ?: 20f
             if (y + rh > h - margin) newPage()
             val c = page!!.canvas
             if (r % 2 == 1) c.drawRect(margin, y, w - margin, y + rh, zebra)
-            row.forEachIndexed { i, t -> c.text(t, body, margin + i * colW + 4, y + 5, colW - 8) }
+            // Spreadsheet values arrive as plain ASCII; the PDF shows Bangla digits.
+            row.forEachIndexed { i, t -> c.text(Bn.digits(t), body, margin + i * colW + 4, y + 5, colW - 8) }
             y += rh
         }
         if (report.rows.isEmpty()) page!!.canvas.text("এই সময়ে কোনো তথ্য নেই।", body, margin, y + 12, w - 64)

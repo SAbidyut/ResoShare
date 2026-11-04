@@ -1,0 +1,68 @@
+# ResoShare production stack: Caddy (automatic HTTPS) → API → PostgreSQL.
+# Usage: cp .env.example .env && (fill secrets) && docker compose up -d --build
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: resoshare
+      POSTGRES_USER: resoshare
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
+    volumes:
+      - dbdata:/var/lib/postgresql/data
+    networks: [internal]          # never published to the host or the internet
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U resoshare -d resoshare"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    security_opt: ["no-new-privileges:true"]
+
+  api:
+    build: .
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      NODE_ENV: production
+      DATABASE_URL: postgres://resoshare:${POSTGRES_PASSWORD}@db:5432/resoshare
+      PUBLIC_BASE_URL: https://${DOMAIN:?set DOMAIN in .env}
+      UPLOAD_DIR: /data/uploads
+      TRUST_PROXY: "1"             # exactly one trusted hop: the Caddy container
+    volumes:
+      - uploads:/data/uploads
+    depends_on:
+      db:
+        condition: service_healthy
+    networks: [internal, web]
+    read_only: true
+    tmpfs: ["/tmp"]
+    cap_drop: ["ALL"]
+    security_opt: ["no-new-privileges:true"]
+
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    environment:
+      DOMAIN: ${DOMAIN}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on: [api]
+    networks: [web]
+    security_opt: ["no-new-privileges:true"]
+
+networks:
+  internal:
+    internal: true                 # no outbound internet for db/api traffic on this network
+  web: {}
+
+volumes:
+  dbdata: {}
+  uploads: {}
+  caddy_data: {}
+  caddy_config: {}

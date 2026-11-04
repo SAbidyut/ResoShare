@@ -1,0 +1,24 @@
+{$DOMAIN} {
+	encode zstd gzip
+
+	header {
+		-Server
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+	}
+
+	request_body {
+		max_size 20MB
+	}
+
+	handle /api/* {
+		reverse_proxy api:3000
+	}
+
+	handle /verify/* {
+		reverse_proxy api:3000
+	}
+
+	handle {
+		respond "Not found" 404
+	}
+}

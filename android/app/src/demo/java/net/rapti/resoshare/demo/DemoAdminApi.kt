@@ -405,24 +405,29 @@ class DemoAdminApi : AdminApi {
         val b = to?.let { runCatching { LocalDate.parse(it) }.getOrNull() } ?: s.today()
         fun inRange(o: DemoStore.DOrder) = o.createdAt.atZone(Bn.DHAKA).toLocalDate().let { !it.isBefore(a) && !it.isAfter(b) }
         val status = mapOf("confirmed" to "নিশ্চিত", "pending" to "যাচাই চলছে", "cancelled" to "বাতিল")
+        val kyc = mapOf("verified" to "যাচাইকৃত", "rejected" to "বাতিল", "pending" to "অপেক্ষমাণ")
+        // Same shape as the server: ASCII money "1000.00" and ISO dates (spreadsheet friendly).
+        fun plain(p: Long) = "%d.%02d".format(p / 100, p % 100)
+        fun day(i: java.time.Instant) = i.atZone(Bn.DHAKA).toLocalDate().toString()
+        fun method(m: String) = if (m == "cash") "ক্যাশ" else "ব্যাংক ট্রান্সফার"
         val r = when (type) {
-            "sales" -> Report(type, "বিক্রয় রিপোর্ট", listOf("তারিখ", "অর্ডার", "শেয়ারহোল্ডার", "শেয়ার", "রেট", "মোট", "মাধ্যম"),
+            "sales" -> Report(type, "বিক্রয় রিপোর্ট", listOf("তারিখ", "অর্ডার নম্বর", "শেয়ারহোল্ডার ID", "নাম", "শেয়ার", "রেট (৳)", "মোট (৳)", "মাধ্যম"),
                 s.orders.filter { it.status == "confirmed" && inRange(it) }.sortedBy { it.createdAt }.map { o ->
                     val u = s.user(o.userId)
-                    listOf(Bn.dateOf(o.createdAt.iso()), "ORD-%06d".format(o.no), u.name, Bn.num(o.qty), Bn.money(o.rate), Bn.money(o.qty * o.rate), if (o.method == "cash") "ক্যাশ" else "ব্যাংক")
+                    listOf(day(o.decidedAt ?: o.createdAt), "ORD-%06d".format(o.no), u.shareholderNo, u.name, o.qty.toString(), plain(o.rate), plain(o.qty * o.rate), method(o.method))
                 }, s.now().iso())
-            "shareholders" -> Report(type, "শেয়ারহোল্ডার তালিকা", listOf("ID", "নাম", "শেয়ার", "মোট পরিশোধ", "KYC", "অবস্থা"),
-                s.users.sortedBy { it.no }.map { u -> listOf(u.shareholderNo, u.name, Bn.num(s.sharesOf(u)), Bn.money(s.paidOf(u)),
-                    when (u.kycStatus) { "verified" -> "যাচাইকৃত"; "rejected" -> "বাতিল"; else -> "অপেক্ষমাণ" }, if (u.accountStatus == "active") "সক্রিয়" else "স্থগিত") }, s.now().iso())
-            "transactions" -> Report(type, "লেনদেন বিবরণী", listOf("তারিখ", "অর্ডার", "শেয়ারহোল্ডার", "শেয়ার", "মোট", "মাধ্যম", "রেফারেন্স", "অবস্থা"),
+            "shareholders" -> Report(type, "শেয়ারহোল্ডার তালিকা", listOf("শেয়ারহোল্ডার ID", "নাম", "মোবাইল", "KYC", "অবস্থা", "শেয়ার", "মোট পরিশোধ (৳)", "যোগদান"),
+                s.users.sortedBy { it.no }.map { u -> listOf(u.shareholderNo, u.name, u.mobile.take(5) + "-••••••", kyc[u.kycStatus] ?: u.kycStatus,
+                    if (u.accountStatus == "active") "সক্রিয়" else "স্থগিত", s.sharesOf(u).toString(), plain(s.paidOf(u)), day(u.joinedAt)) }, s.now().iso())
+            "transactions" -> Report(type, "লেনদেন বিবরণী", listOf("তারিখ", "অর্ডার নম্বর", "শেয়ারহোল্ডার ID", "নাম", "শেয়ার", "মোট (৳)", "মাধ্যম", "রেফারেন্স", "অবস্থা"),
                 s.orders.filter { inRange(it) }.sortedBy { it.createdAt }.map { o ->
                     val u = s.user(o.userId)
-                    listOf(Bn.dateOf(o.createdAt.iso()), "ORD-%06d".format(o.no), u.name, Bn.num(o.qty), Bn.money(o.qty * o.rate), if (o.method == "cash") "ক্যাশ" else "ব্যাংক", o.reference ?: "", status[o.status] ?: o.status)
+                    listOf(day(o.createdAt), "ORD-%06d".format(o.no), u.shareholderNo, u.name, o.qty.toString(), plain(o.qty * o.rate), method(o.method), o.reference ?: "", status[o.status] ?: o.status)
                 }, s.now().iso())
-            "dividends" -> Report(type, "ডিভিডেন্ড রিপোর্ট", listOf("অর্থবছর", "প্রতি শেয়ার", "শেয়ার", "মোট বিতরণ", "বিতরণের তারিখ"),
-                s.dividends.map { listOf(Bn.digits(it.fiscalYear), Bn.money(it.perSharePaisa), Bn.num(it.totalShares), Bn.money(it.totalPaisa), Bn.date(it.distributionDate)) }, s.now().iso())
-            "kyc" -> Report(type, "KYC অবস্থা", listOf("ID", "নাম", "যোগদান", "KYC"),
-                s.users.sortedBy { it.no }.map { listOf(it.shareholderNo, it.name, Bn.dateOf(it.joinedAt.iso()), when (it.kycStatus) { "verified" -> "যাচাইকৃত"; "rejected" -> "বাতিল"; else -> "অপেক্ষমাণ" }) }, s.now().iso())
+            "dividends" -> Report(type, "ডিভিডেন্ড রিপোর্ট", listOf("অর্থবছর", "বিতরণের তারিখ", "শেয়ার", "প্রতি শেয়ার (৳)", "মোট বিতরণ (৳)"),
+                s.dividends.map { listOf(it.fiscalYear, it.distributionDate, it.totalShares.toString(), plain(it.perSharePaisa), plain(it.totalPaisa)) }, s.now().iso())
+            "kyc" -> Report(type, "KYC অবস্থা", listOf("শেয়ারহোল্ডার ID", "নাম", "KYC অবস্থা", "জমার তারিখ", "মন্তব্য"),
+                s.users.sortedBy { it.no }.map { listOf(it.shareholderNo, it.name, kyc[it.kycStatus] ?: it.kycStatus, day(it.submittedAt), it.kycNote ?: "") }, s.now().iso())
             else -> throw ApiException("INVALID_INPUT", "রিপোর্টের ধরন সঠিক নয়", 400)
         }
         s.log(st.name, "content", "${r.title} তৈরি করা হয়েছে", "info")

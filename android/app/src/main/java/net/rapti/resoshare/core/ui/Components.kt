@@ -58,6 +58,7 @@ import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -594,7 +595,7 @@ fun SegmentedTabs(items: List<String>, selected: Int, onSelect: (Int) -> Unit, m
     ) {
         val w = maxWidth / items.size
         val x by animateDpAsState(w * selected, spring(dampingRatio = 0.8f, stiffness = Spring.StiffnessMediumLow), label = "seg")
-        Box(Modifier.offset(x = x).width(w).height(44.dp).clip(RoundedCornerShape(11.dp)).background(c.ink))
+        Box(Modifier.offset { androidx.compose.ui.unit.IntOffset(x.roundToPx(), 0) }.width(w).height(44.dp).clip(RoundedCornerShape(11.dp)).background(c.ink))
         Row(Modifier.fillMaxWidth()) {
             items.forEachIndexed { i, label ->
                 val fg by animateColorAsState(if (i == selected) c.onInk else c.text, tween(200), label = "segfg")
@@ -700,7 +701,7 @@ fun KeyValue(key: String, value: String, valueWeight: FontWeight = FontWeight.Bo
     Row(Modifier.fillMaxWidth().padding(vertical = 2.dp), verticalAlignment = Alignment.Top) {
         T(key, size, color = Reso.colors.muted, modifier = Modifier.weight(1f))
         Spacer(Modifier.width(12.dp))
-        T(value, size, valueWeight, valueColor, align = TextAlign.End, modifier = Modifier.weight(1.4f, fill = false))
+        T(value, size, valueWeight, valueColor, align = TextAlign.End, modifier = Modifier.weight(1.4f))
     }
 }
 
@@ -796,14 +797,14 @@ fun Refreshable(refreshing: Boolean, onRefresh: () -> Unit, modifier: Modifier =
 /** Smoothly counts a Long value (money/shares) from its previous value to the new one. */
 @Composable
 fun animatedLong(target: Long, durationMs: Int = 900): Long {
-    val start = remember { mutableStateOf(0L) }
+    val start = remember { mutableLongStateOf(0L) }
     val anim = remember { Animatable(1f) }
-    var shown by remember { mutableStateOf(0L) }
+    var shown by remember { mutableLongStateOf(0L) }
     LaunchedEffect(target) {
-        start.value = shown
+        start.longValue = shown
         anim.snapTo(0f)
         anim.animateTo(1f, tween(durationMs, easing = FastOutSlowInEasing)) {
-            shown = start.value + ((target - start.value) * value.toDouble()).toLong()
+            shown = start.longValue + ((target - start.longValue) * value.toDouble()).toLong()
         }
         shown = target
     }
@@ -896,7 +897,7 @@ fun BottomBar(items: List<NavItem>, selected: String?, onSelect: (String) -> Uni
                     horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.Center,
                 ) {
-                    Box(Modifier.offset(y = lift)) {
+                    Box(Modifier.offset { androidx.compose.ui.unit.IntOffset(0, lift.roundToPx()) }) {
                         Icon(item.icon, item.label, tint = color, modifier = Modifier.size(24.dp))
                         if (item.badge > 0) {
                             Box(

@@ -1,7 +1,7 @@
 package net.rapti.resoshare.role
 
 import androidx.compose.runtime.Composable
-import net.rapti.resoshare.core.ui.T
+import net.rapti.resoshare.user.UserApp
 
 object RoleSpec {
     const val blockRootedDevices = false
@@ -9,4 +9,4 @@ object RoleSpec {
 }
 
 @Composable
-fun RoleRoot() { T("stub") }
+fun RoleRoot() = UserApp()
