@@ -1,6 +1,7 @@
 package net.rapti.resoshare.admin
 
 import androidx.compose.foundation.background
+import net.rapti.resoshare.core.i18n.t
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -67,23 +68,23 @@ fun ApprovalsScreen() {
     AdminScreen(
         header = {
             ScreenHeader(
-                "অনুমোদন",
-                subtitle = if (data == null) "লোড হচ্ছে…" else "${Bn.num(payments.size + kyc.size)}টি আপনার সিদ্ধান্তের অপেক্ষায়",
+                t("অনুমোদন", "Approvals"),
+                subtitle = if (data == null) t("লোড হচ্ছে…", "Loading…") else t("${Bn.num(payments.size + kyc.size)}টি আপনার সিদ্ধান্তের অপেক্ষায়", "${Bn.num(payments.size + kyc.size)} awaiting your decision"),
             )
         },
         refreshing = loader.refreshing,
         onRefresh = { done.clear(); loader.refresh() },
     ) {
-        item("tabs") { SegmentedTabs(listOf("পেমেন্ট (${Bn.num(payments.size)})", "KYC (${Bn.num(kyc.size)})"), tab, { tab = it }) }
+        item("tabs") { SegmentedTabs(listOf(t("পেমেন্ট (${Bn.num(payments.size)})", "Payments (${Bn.num(payments.size)})"), "KYC (${Bn.num(kyc.size)})"), tab, { tab = it }) }
         loadItems(loader.state, { loader.load() }) {
             if (tab == 0) {
-                if (payments.isEmpty()) item("pe") { EmptyBlock("কোনো পেমেন্ট অনুমোদনের অপেক্ষায় নেই", ResoIcons.CheckCircle) }
-                items(payments, key = { it.id }) { o ->
+                if (payments.isEmpty()) item("pe") { EmptyBlock(t("কোনো পেমেন্ট অনুমোদনের অপেক্ষায় নেই", "No payments awaiting approval"), ResoIcons.CheckCircle) }
+                items(payments, key = { it.id }, contentType = { "pay" }) { o ->
                     Box(Modifier.animateItem()) { PaymentCard(o) { decided(o.id) } }
                 }
             } else {
-                if (kyc.isEmpty()) item("ke") { EmptyBlock("কোনো KYC যাচাইয়ের অপেক্ষায় নেই", ResoIcons.Shield) }
-                items(kyc, key = { it.shareholderId }) { k ->
+                if (kyc.isEmpty()) item("ke") { EmptyBlock(t("কোনো KYC যাচাইয়ের অপেক্ষায় নেই", "No KYC awaiting review"), ResoIcons.Shield) }
+                items(kyc, key = { it.shareholderId }, contentType = { "kyc" }) { k ->
                     Box(Modifier.animateItem()) {
                         KycCard(k, onView = { id, kind -> viewer = id to "${k.fullName} · ${kycLabel(kind)}" }) { decided(k.shareholderId) }
                     }
@@ -117,38 +118,41 @@ private fun PaymentCard(o: AdminOrder, onDecided: () -> Unit) {
                 }
                 Column(horizontalAlignment = Alignment.End) {
                     T(Bn.money(o.amountPaisa), 19.sp, FontWeight.Bold)
-                    T("${Bn.num(o.quantity)}টি শেয়ার", 13.sp, color = Reso.colors.muted)
+                    T(t("${Bn.num(o.quantity)}টি শেয়ার", "${Bn.num(o.quantity)} shares"), 13.sp, color = Reso.colors.muted)
                 }
             }
             DetailBox {
-                KeyValue("মাধ্যম", if (o.method == "cash") "ক্যাশ (অফিসে জমা)" else "ব্যাংক ট্রান্সফার", size = 14.sp)
-                KeyValue(if (o.method == "cash") "রসিদ নম্বর" else "রেফারেন্স", o.reference ?: "—", size = 14.sp)
-                KeyValue("রেট", Bn.money(o.ratePaisa), size = 14.sp)
-                KeyValue("সময়", Bn.relative(o.createdAt), size = 14.sp)
+                KeyValue(t("মাধ্যম", "Method"), if (o.method == "cash") t("ক্যাশ (অফিসে জমা)", "Cash (paid at office)") else t("ব্যাংক ট্রান্সফার", "Bank transfer"), size = 14.sp)
+                KeyValue(if (o.method == "cash") t("রসিদ নম্বর", "Receipt no.") else t("রেফারেন্স", "Reference"), o.reference ?: "—", size = 14.sp)
+                KeyValue(t("রেট", "Rate"), Bn.money(o.ratePaisa), size = 14.sp)
+                KeyValue(t("সময়", "Time"), Bn.relative(o.createdAt), size = 14.sp)
             }
             if (can) Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                InkButton("অনুমোদন", { confirm = true }, Modifier.weight(1f), loading = action.busy && confirm)
-                DangerButton("বাতিল", { reject = true }, Modifier.weight(1f), enabled = !action.busy)
-            } else T("পেমেন্ট অনুমোদনের অনুমতি আপনার নেই", 13.sp, color = Reso.colors.muted)
+                InkButton(t("অনুমোদন", "Approve"), { confirm = true }, Modifier.weight(1f), loading = action.busy && confirm)
+                DangerButton(t("বাতিল", "Reject"), { reject = true }, Modifier.weight(1f), enabled = !action.busy)
+            } else T(t("পেমেন্ট অনুমোদনের অনুমতি আপনার নেই", "You don't have permission to approve payments"), 13.sp, color = Reso.colors.muted)
         }
     }
     if (confirm && !action.busy) ConfirmDialog(
-        "পেমেন্ট অনুমোদন করবেন?",
-        "${o.shareholderName}-এর ${Bn.money(o.amountPaisa)} ${if (o.method == "cash") "ক্যাশ জমা" else "ব্যাংক ট্রান্সফার"} যাচাই করেছেন তো? অনুমোদন করলে ${Bn.num(o.quantity)}টি শেয়ার তাঁর প্রোফাইলে যুক্ত হবে।",
-        "অনুমোদন করুন",
+        t("পেমেন্ট অনুমোদন করবেন?", "Approve this payment?"),
+        t(
+            "${o.shareholderName}-এর ${Bn.money(o.amountPaisa)} ${if (o.method == "cash") "ক্যাশ জমা" else "ব্যাংক ট্রান্সফার"} যাচাই করেছেন তো? অনুমোদন করলে ${Bn.num(o.quantity)}টি শেয়ার তাঁর প্রোফাইলে যুক্ত হবে।",
+            "Have you verified ${o.shareholderName}'s ${Bn.money(o.amountPaisa)} ${if (o.method == "cash") "cash deposit" else "bank transfer"}? Approving adds ${Bn.num(o.quantity)} shares to their profile.",
+        ),
+        t("অনুমোদন করুন", "Approve"),
         {
             action.run({ Graph.adminApi.approveOrder(o.id) }, onErr = { Toaster.show(it.message); confirm = false }) {
                 confirm = false
-                Toaster.show("পেমেন্ট অনুমোদিত হয়েছে")
+                Toaster.show(t("পেমেন্ট অনুমোদিত হয়েছে", "Payment approved"))
                 onDecided()
             }
         },
         { confirm = false },
     )
-    if (reject) ReasonDialog("পেমেন্ট বাতিল করবেন?", "বাতিল করুন", { reason ->
+    if (reject) ReasonDialog(t("পেমেন্ট বাতিল করবেন?", "Reject this payment?"), t("বাতিল করুন", "Reject"), { reason ->
         reject = false
-        action.run({ Graph.adminApi.rejectOrder(o.id, Reason(reason)) }) { Toaster.show("পেমেন্ট বাতিল করা হয়েছে"); onDecided() }
-    }, { reject = false }, placeholder = "বাতিলের কারণ (শেয়ারহোল্ডার দেখতে পাবেন)")
+        action.run({ Graph.adminApi.rejectOrder(o.id, Reason(reason)) }) { Toaster.show(t("পেমেন্ট বাতিল করা হয়েছে", "Payment rejected")); onDecided() }
+    }, { reject = false }, placeholder = t("বাতিলের কারণ (শেয়ারহোল্ডার দেখতে পাবেন)", "Reason (the shareholder will see it)"))
 }
 
 @Composable
@@ -165,37 +169,37 @@ private fun KycCard(k: KycRequest, onView: (String, String) -> Unit, onDecided: 
             }
             DetailBox {
                 KeyValue("NID", Bn.digits(k.nidMasked), size = 14.sp)
-                KeyValue("জন্ম তারিখ", Bn.date(k.dob), size = 14.sp)
-                KeyValue("জমা দিয়েছেন", Bn.relative(k.submittedAt), size = 14.sp)
+                KeyValue(t("জন্ম তারিখ", "Date of birth"), Bn.date(k.dob), size = 14.sp)
+                KeyValue(t("জমা দিয়েছেন", "Submitted"), Bn.relative(k.submittedAt), size = 14.sp)
             }
             Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 k.files.forEach { f ->
                     DocTile(kycLabel(f.kind), Modifier.weight(1f)) {
-                        if (can) onView(f.id, f.kind) else Toaster.show("KYC নথি দেখার অনুমতি আপনার নেই")
+                        if (can) onView(f.id, f.kind) else Toaster.show(t("KYC নথি দেখার অনুমতি আপনার নেই", "You don't have permission to view KYC documents"))
                     }
                 }
             }
             if (can) Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                InkButton("অনুমোদন", { confirm = true }, Modifier.weight(1f), loading = action.busy && confirm)
-                DangerButton("বাতিল", { reject = true }, Modifier.weight(1f), enabled = !action.busy)
-            } else T("KYC অনুমোদনের অনুমতি আপনার নেই", 13.sp, color = Reso.colors.muted)
+                InkButton(t("অনুমোদন", "Approve"), { confirm = true }, Modifier.weight(1f), loading = action.busy && confirm)
+                DangerButton(t("বাতিল", "Reject"), { reject = true }, Modifier.weight(1f), enabled = !action.busy)
+            } else T(t("KYC অনুমোদনের অনুমতি আপনার নেই", "You don't have permission to approve KYC"), 13.sp, color = Reso.colors.muted)
         }
     }
     if (confirm && !action.busy) ConfirmDialog(
-        "KYC অনুমোদন করবেন?",
-        "NID-এর ছবি, নম্বর ও জন্ম তারিখ মিলিয়ে দেখেছেন তো? অনুমোদন করলে ${k.fullName} শেয়ার কিনতে পারবেন।",
-        "অনুমোদন করুন",
+        t("KYC অনুমোদন করবেন?", "Approve this KYC?"),
+        t("NID-এর ছবি, নম্বর ও জন্ম তারিখ মিলিয়ে দেখেছেন তো? অনুমোদন করলে ${k.fullName} শেয়ার কিনতে পারবেন।", "Have you matched the NID photos, number and date of birth? Once approved, ${k.fullName} can buy shares."),
+        t("অনুমোদন করুন", "Approve"),
         {
             action.run({ Graph.adminApi.approveKyc(k.shareholderId) }, onErr = { Toaster.show(it.message); confirm = false }) {
                 confirm = false
-                Toaster.show("KYC অনুমোদিত হয়েছে")
+                Toaster.show(t("KYC অনুমোদিত হয়েছে", "KYC approved"))
                 onDecided()
             }
         },
         { confirm = false },
     )
-    if (reject) ReasonDialog("KYC বাতিল করবেন?", "বাতিল করুন", { reason ->
+    if (reject) ReasonDialog(t("KYC বাতিল করবেন?", "Reject this KYC?"), t("বাতিল করুন", "Reject"), { reason ->
         reject = false
-        action.run({ Graph.adminApi.rejectKyc(k.shareholderId, Reason(reason)) }) { Toaster.show("KYC বাতিল করা হয়েছে"); onDecided() }
-    }, { reject = false }, placeholder = "যেমন: NID-এর ছবি অস্পষ্ট")
+        action.run({ Graph.adminApi.rejectKyc(k.shareholderId, Reason(reason)) }) { Toaster.show(t("KYC বাতিল করা হয়েছে", "KYC rejected")); onDecided() }
+    }, { reject = false }, placeholder = t("যেমন: NID-এর ছবি অস্পষ্ট", "e.g. NID photo is blurry"))
 }

@@ -1,6 +1,7 @@
 package net.rapti.resoshare.admin
 
 import androidx.compose.foundation.background
+import net.rapti.resoshare.core.i18n.t
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -29,6 +30,7 @@ import kotlinx.coroutines.launch
 import net.rapti.resoshare.Auth
 import net.rapti.resoshare.BuildConfig
 import net.rapti.resoshare.Graph
+import net.rapti.resoshare.core.ui.headerBubble
 import net.rapti.resoshare.MainActivity
 import net.rapti.resoshare.core.format.Bn
 import net.rapti.resoshare.core.ui.Avatar
@@ -59,10 +61,10 @@ fun MoreScreen(an: AdminNav) {
 
     AdminScreen(header = {
         Column(
-            Modifier.fillMaxWidth().background(c.header).statusBarsPadding().padding(start = 20.dp, end = 20.dp, top = 16.dp, bottom = 22.dp),
+            Modifier.fillMaxWidth().background(c.header).headerBubble().statusBarsPadding().padding(start = 20.dp, end = 20.dp, top = 16.dp, bottom = 22.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
-            T("আরও", 22.sp, FontWeight.Bold, Color.White)
+            T(t("আরও", "More"), 22.sp, FontWeight.Bold, Color.White)
             Row(
                 Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).background(c.headerChip).padding(16.dp),
                 verticalAlignment = Alignment.CenterVertically,
@@ -71,43 +73,43 @@ fun MoreScreen(an: AdminNav) {
                 Avatar(me?.name ?: "?", 56.dp, Brand.Amber, Brand.Navy)
                 Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
                     T(me?.name ?: "—", 18.sp, FontWeight.Bold, Color.White, maxLines = 2)
-                    Tag(me?.roleName ?: "", Brand.Navy, Brand.Gold, size = 13.sp)
+                    Tag(roleLabel(me?.roleKey, me?.roleName), Brand.Navy, Brand.Gold, size = 13.sp)
                 }
             }
         }
     }) {
         item("share") {
-            Section("শেয়ার ব্যবস্থাপনা", listOfNotNull(
-                MenuEntry(ResoIcons.List, "লেনদেন", Routes.TRANSACTIONS),
-                MenuEntry(ResoIcons.Chart, "শেয়ার ও রেট", Routes.RATE),
-                MenuEntry(ResoIcons.Dollar, "ডিভিডেন্ড", Routes.DIVIDEND),
-                if (Perm.REPORTS in perms) MenuEntry(ResoIcons.Report, "রিপোর্ট", Routes.REPORTS) else null,
+            Section(t("শেয়ার ব্যবস্থাপনা", "Share management"), listOfNotNull(
+                MenuEntry(ResoIcons.List, t("লেনদেন", "Transactions"), Routes.TRANSACTIONS),
+                MenuEntry(ResoIcons.Chart, t("শেয়ার ও রেট", "Shares & rate"), Routes.RATE),
+                MenuEntry(ResoIcons.Dollar, t("ডিভিডেন্ড", "Dividend"), Routes.DIVIDEND),
+                if (Perm.REPORTS in perms) MenuEntry(ResoIcons.Report, t("রিপোর্ট", "Reports"), Routes.REPORTS) else null,
             ), an)
         }
         item("comm") {
-            Section("যোগাযোগ", listOf(
-                MenuEntry(ResoIcons.Bell, "নোটিশ ও বার্তা", Routes.NOTICES),
-                MenuEntry(ResoIcons.Shield, "নিয়ম ও রেগুলেশন", Routes.RULES),
+            Section(t("যোগাযোগ", "Communication"), listOf(
+                MenuEntry(ResoIcons.Bell, t("নোটিশ ও বার্তা", "Notices & messages"), Routes.NOTICES),
+                MenuEntry(ResoIcons.Shield, t("নিয়ম ও রেগুলেশন", "Rules & regulations"), Routes.RULES),
             ), an)
         }
         item("sys") {
-            Section("নিরাপত্তা ও সিস্টেম", listOfNotNull(
-                if (Perm.SETTINGS in perms) MenuEntry(ResoIcons.User, "ইউজার ও রোল", Routes.STAFF) else null,
-                if (Perm.SETTINGS in perms) MenuEntry(ResoIcons.Clock, "অডিট লগ", Routes.AUDIT) else null,
-                MenuEntry(ResoIcons.Sun, "সেটিংস", Routes.SETTINGS),
-                MenuEntry(ResoIcons.Key, "পাসওয়ার্ড পরিবর্তন", Routes.PASSWORD),
+            Section(t("নিরাপত্তা ও সিস্টেম", "Security & system"), listOfNotNull(
+                if (Perm.SETTINGS in perms) MenuEntry(ResoIcons.User, t("ইউজার ও রোল", "Users & roles"), Routes.STAFF) else null,
+                if (Perm.SETTINGS in perms) MenuEntry(ResoIcons.Clock, t("অডিট লগ", "Audit log"), Routes.AUDIT) else null,
+                MenuEntry(ResoIcons.Sun, t("সেটিংস", "Settings"), Routes.SETTINGS),
+                MenuEntry(ResoIcons.Key, t("পাসওয়ার্ড পরিবর্তন", "Change password"), Routes.PASSWORD),
             ), an)
         }
         item("app") { AppSection() }
-        item("logout") { DangerButton("লগআউট", { logout = true }, height = 54.dp) }
+        item("logout") { DangerButton(t("লগআউট", "Log out"), { logout = true }, height = 54.dp) }
         item("ver") {
             Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 if (Graph.isDemo) DemoBadge()
-                T("রেজোনেন্স অ্যাডমিন · সংস্করণ ${Bn.digits(BuildConfig.VERSION_NAME)}", 13.sp, color = c.muted, align = TextAlign.Center)
+                T(t("রেজোনেন্স অ্যাডমিন · সংস্করণ ${Bn.digits(BuildConfig.VERSION_NAME)}", "Resonance admin · version ${BuildConfig.VERSION_NAME}"), 13.sp, color = c.muted, align = TextAlign.Center)
             }
         }
     }
-    if (logout) ConfirmDialog("লগআউট করবেন?", "আবার ঢুকতে পাসওয়ার্ড ও OTP লাগবে।", "লগআউট", {
+    if (logout) ConfirmDialog(t("লগআউট করবেন?", "Log out?"), t("আবার ঢুকতে পাসওয়ার্ড ও OTP লাগবে।", "You'll need your password and OTP to sign in again."), t("লগআউট", "Log out"), {
         logout = false
         scope.launch { Auth.logout(null) }
     }, { logout = false }, danger = true)
@@ -135,21 +137,24 @@ private fun AppSection() {
     val canLock = remember { activity?.canUseDeviceAuth() == true }
     var lock by remember { mutableStateOf(Graph.prefs.appLock && canLock) }
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        T("অ্যাপ", 14.sp, color = c.muted, modifier = Modifier.padding(start = 4.dp))
+        T(t("অ্যাপ", "App"), 14.sp, color = c.muted, modifier = Modifier.padding(start = 4.dp))
         Column(
             Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp)).background(c.surface).padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(10.dp),
         ) {
-            T("থিম", 16.sp, FontWeight.Bold)
-            SegmentedTabs(listOf("সিস্টেম", "লাইট", "ডার্ক"), mode.ordinal, { i ->
+            T(t("থিম", "Theme"), 16.sp, FontWeight.Bold)
+            SegmentedTabs(listOf(t("সিস্টেম", "System"), t("লাইট", "Light"), t("ডার্ক", "Dark")), mode.ordinal, { i ->
                 val m = ThemeMode.entries[i]
                 Graph.themeMode.value = m
                 Graph.prefs.themeMode = m
             })
             RowDivider(Modifier.padding(vertical = 4.dp))
+            T(t("ভাষা", "Language"), 16.sp, FontWeight.Bold)
+            LangPills()
+            RowDivider(Modifier.padding(vertical = 4.dp))
             ToggleRow(
-                "অ্যাপ লক",
-                if (canLock) "অ্যাপে ফিরলে ফিঙ্গারপ্রিন্ট/ফোনের পিন লাগবে" else "ফোনে স্ক্রিন লক চালু থাকলে ব্যবহার করা যাবে",
+                t("অ্যাপ লক", "App lock"),
+                if (canLock) t("অ্যাপে ফিরলে ফিঙ্গারপ্রিন্ট/ফোনের পিন লাগবে", "Fingerprint/phone PIN needed when you return") else t("ফোনে স্ক্রিন লক চালু থাকলে ব্যবহার করা যাবে", "Available when the phone has a screen lock"),
                 lock,
                 { lock = it; Graph.prefs.appLock = it },
                 enabled = canLock,

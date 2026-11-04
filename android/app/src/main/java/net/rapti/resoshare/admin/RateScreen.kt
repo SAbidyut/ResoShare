@@ -1,6 +1,7 @@
 package net.rapti.resoshare.admin
 
 import androidx.compose.foundation.background
+import net.rapti.resoshare.core.i18n.t
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -89,26 +90,26 @@ fun RateScreen(an: AdminNav) {
     val dirty = texts.indices.any { i -> parsed[i] != saved.getOrNull(i) }
     val errors: List<String?> = texts.indices.map { i ->
         when {
-            texts[i].isBlank() && saved.getOrNull(i) != null -> "সংরক্ষিত রেট মুছে ফেলা যায় না"
-            texts[i].isNotBlank() && parsed[i] == null -> "সঠিক রেট লিখুন"
+            texts[i].isBlank() && saved.getOrNull(i) != null -> t("সংরক্ষিত রেট মুছে ফেলা যায় না", "A saved rate can't be cleared")
+            texts[i].isNotBlank() && parsed[i] == null -> t("সঠিক রেট লিখুন", "Enter a valid rate")
             else -> null
         }
     }
 
     AdminScreen(
         header = {
-            ScreenHeader("শেয়ার ও রেট", onBack = an::back) {
+            ScreenHeader(t("শেয়ার ও রেট", "Shares & rate"), onBack = an::back) {
                 val c = Reso.colors
                 Row(
                     Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).background(c.headerChip).padding(16.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     Column(Modifier.weight(1f)) {
-                        T("আজকের রেট · কেনা ও বিক্রয় একই", 13.sp, color = Brand.HeaderMuted, maxLines = 1)
+                        T(t("আজকের রেট · কেনা ও বিক্রয় একই", "Today's rate · buy = sell"), 13.sp, color = Brand.HeaderMuted, maxLines = 1)
                         T(data?.let { Bn.money(it.today.ratePaisa) } ?: "—", 28.sp, FontWeight.Bold, Brand.Gold, maxLines = 1)
                     }
                     if (data != null) Column(horizontalAlignment = Alignment.End) {
-                        T("আগামীকাল", 13.sp, color = Brand.HeaderMuted)
+                        T(t("আগামীকাল", "Tomorrow"), 13.sp, color = Brand.HeaderMuted)
                         T(Bn.money(data.tomorrow.ratePaisa), 17.sp, FontWeight.Bold, Color.White)
                         val ch = data.tomorrow.ratePaisa - data.today.ratePaisa
                         T(changeText(ch, short = true), 13.sp, FontWeight.Bold, changeColorOnNavy(ch))
@@ -125,11 +126,11 @@ fun RateScreen(an: AdminNav) {
                 ResoCard {
                     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
-                            T("আগামী ১৫ দিনের রেট সূচি", 17.sp, FontWeight.Bold, modifier = Modifier.weight(1f))
-                            if (dirty) Tag("সংরক্ষণ বাকি", c.warnBg, c.brown) else Tag("সংরক্ষিত", c.successBg, c.green)
+                            T(t("আগামী ১৫ দিনের রেট সূচি", "15-day rate schedule"), 17.sp, FontWeight.Bold, modifier = Modifier.weight(1f))
+                            if (dirty) Tag(t("সংরক্ষণ বাকি", "Unsaved"), c.warnBg, c.brown) else Tag(t("সংরক্ষিত", "Saved"), c.successBg, c.green)
                         }
                         InfoBox(
-                            "যে দিনে যত টাকা-পয়সা বসাবেন, সেই দিন সেটাই চালু হবে। রেট প্রতিদিন রাত ১২টায় নিজে থেকে বদলাবে। কেনার রেট আর বিক্রয় রেট সবসময় একই থাকবে। কোনো দিন খালি রাখলে আগের দিনের রেট চলবে।",
+                            t("যে দিনে যত টাকা-পয়সা বসাবেন, সেই দিন সেটাই চালু হবে। রেট প্রতিদিন রাত ১২টায় নিজে থেকে বদলাবে। কেনার রেট আর বিক্রয় রেট সবসময় একই থাকবে। কোনো দিন খালি রাখলে আগের দিনের রেট চলবে।", "The amount you set for a day becomes that day's rate. Rates switch automatically at midnight. Buy and sell rates are always the same. A blank day keeps the previous day's rate."),
                             icon = ResoIcons.Calendar,
                         )
                         // Today (locked)
@@ -139,7 +140,7 @@ fun RateScreen(an: AdminNav) {
                         ) {
                             Column(Modifier.weight(1f)) {
                                 T(Bn.weekdayDayMonth(Bn.parseDate(r.today.date) ?: Bn.today()), 16.sp, FontWeight.Bold)
-                                T("আজ · চালু আছে", 13.sp, FontWeight.Bold, c.green)
+                                T(t("আজ · চালু আছে", "Today · active"), 13.sp, FontWeight.Bold, c.green)
                             }
                             T(Bn.money(r.today.ratePaisa), 18.sp, FontWeight.Bold)
                         }
@@ -148,7 +149,7 @@ fun RateScreen(an: AdminNav) {
             }
             if (texts.size == r.schedule.size) {
                 r.schedule.forEachIndexed { i, s ->
-                    item("row:${s.date}") {
+                    item("row:${s.date}", contentType = "rate") {
                         val prev = effective(parsed, i - 1, r.today.ratePaisa)
                         ScheduleRow(
                             date = Bn.parseDate(s.date) ?: Bn.today(),
@@ -168,13 +169,13 @@ fun RateScreen(an: AdminNav) {
             }
             if (canEdit) item("save") {
                 Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    CheckRow(notify, { notify = it }) { T("রেট বদলালে অ্যাপের নোটিশে জানান", 15.sp, color = Reso.colors.textSoft) }
+                    CheckRow(notify, { notify = it }) { T(t("রেট বদলালে অ্যাপের নোটিশে জানান", "Notify shareholders in the app when the rate changes"), 15.sp, color = Reso.colors.textSoft) }
                     PrimaryButton(
-                        "রেট সূচি সংরক্ষণ করুন",
+                        t("রেট সূচি সংরক্ষণ করুন", "Save rate schedule"),
                         {
                             when {
-                                errors.any { it != null } -> Toaster.show("লাল চিহ্নিত ঘরগুলো ঠিক করুন")
-                                !dirty -> Toaster.show("কোনো পরিবর্তন নেই")
+                                errors.any { it != null } -> Toaster.show(t("লাল চিহ্নিত ঘরগুলো ঠিক করুন", "Fix the fields marked in red"))
+                                !dirty -> Toaster.show(t("কোনো পরিবর্তন নেই", "No changes"))
                                 else -> confirmSave = true
                             }
                         },
@@ -185,17 +186,17 @@ fun RateScreen(an: AdminNav) {
             item("pool") { PoolCard(pool) }
             item("history") {
                 ResoCard {
-                    T("রেটের ইতিহাস", 17.sp, FontWeight.Bold)
+                    T(t("রেটের ইতিহাস", "Rate history"), 17.sp, FontWeight.Bold)
                     r.history.forEach { h ->
                         RowDivider(Modifier.padding(vertical = 8.dp))
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Column(Modifier.weight(1f)) {
                                 T(Bn.date(h.date), 15.sp, FontWeight.Bold)
-                                T(h.setByName ?: "সূচি অনুযায়ী", 13.sp, color = Reso.colors.muted, maxLines = 1)
+                                T(h.setByName ?: t("সূচি অনুযায়ী", "By schedule"), 13.sp, color = Reso.colors.muted, maxLines = 1)
                             }
                             Column(horizontalAlignment = Alignment.End) {
                                 T(Bn.money(h.ratePaisa), 15.sp, FontWeight.Bold)
-                                T(if (h.changePaisa == 0L) "— অপরিবর্তিত" else changeText(h.changePaisa, short = true), 13.sp, FontWeight.Bold, changeColor(h.changePaisa))
+                                T(if (h.changePaisa == 0L) t("— অপরিবর্তিত", "— Unchanged") else changeText(h.changePaisa, short = true), 13.sp, FontWeight.Bold, changeColor(h.changePaisa))
                             }
                         }
                     }
@@ -207,16 +208,16 @@ fun RateScreen(an: AdminNav) {
     if (confirmSave) {
         val changed = texts.indices.filter { parsed[it] != null && parsed[it] != saved.getOrNull(it) }
         ConfirmDialog(
-            "রেট সূচি সংরক্ষণ করবেন?",
-            "${Bn.num(changed.size)} দিনের রেট সংরক্ষণ হবে। নির্ধারিত দিনে রাত ১২টায় সেই রেট নিজে থেকে চালু হবে${if (notify) " এবং শেয়ারহোল্ডারদের অ্যাপে নোটিশ যাবে" else ""}।",
-            "সংরক্ষণ করুন",
+            t("রেট সূচি সংরক্ষণ করবেন?", "Save the rate schedule?"),
+            t("${Bn.num(changed.size)} দিনের রেট সংরক্ষণ হবে। নির্ধারিত দিনে রাত ১২টায় সেই রেট নিজে থেকে চালু হবে${if (notify) " এবং শেয়ারহোল্ডারদের অ্যাপে নোটিশ যাবে" else ""}।", "Rates for ${Bn.num(changed.size)} days will be saved. Each takes effect at midnight on its day${if (notify) " and shareholders get an app notice" else ""}."),
+            t("সংরক্ষণ করুন", "Save"),
             {
                 confirmSave = false
                 val d = data ?: return@ConfirmDialog
                 val items = d.schedule.indices.mapNotNull { i -> parsed[i]?.let { ScheduleSetItem(d.schedule[i].date, it) } }
                 save.run({ Graph.adminApi.saveSchedule(ScheduleUpdate(items, notify)) }) {
                     rates.set(it)
-                    Toaster.show("রেট সূচি সংরক্ষণ হয়েছে")
+                    Toaster.show(t("রেট সূচি সংরক্ষণ হয়েছে", "Rate schedule saved"))
                 }
             },
             { confirmSave = false },
@@ -247,7 +248,7 @@ private fun changeColorOnNavy(ch: Long) = when {
 private fun changeText(ch: Long, short: Boolean = false): String = when {
     ch > 0 -> "▲ ${Bn.signedMoney(ch)}"
     ch < 0 -> "▼ ${Bn.signedMoney(ch)}"
-    else -> if (short) "— সমান" else "— আগের দিনের সমান"
+    else -> if (short) t("— সমান", "— Same") else t("— আগের দিনের সমান", "— Same as previous day")
 }
 
 @Composable
@@ -266,7 +267,7 @@ private fun ScheduleRow(
         Row(verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f)) {
                 T(Bn.weekdayDayMonth(date), 15.sp, FontWeight.Bold, maxLines = 1)
-                if (value == null) T("সেট করা নেই · আগের রেট চলবে", 12.sp, color = c.muted)
+                if (value == null) T(t("সেট করা নেই · আগের রেট চলবে", "Not set · previous rate continues"), 12.sp, color = c.muted)
                 else T(changeText(value - prev), 12.sp, FontWeight.Bold, changeColor(value - prev))
             }
             if (canEdit) {
@@ -291,7 +292,7 @@ private fun PoolCard(loader: Loader<Pool>) {
     var confirmToggle by remember { mutableStateOf<Boolean?>(null) }
     var issue by remember { mutableStateOf(false) }
     ResoCard {
-        T("শেয়ারের হিসাব", 17.sp, FontWeight.Bold)
+        T(t("শেয়ারের হিসাব", "Share account"), 17.sp, FontWeight.Bold)
         Spacer(Modifier.height(12.dp))
         when (val s = loader.state) {
             is Load.Loading -> net.rapti.resoshare.core.ui.LoadingBlock()
@@ -302,33 +303,33 @@ private fun PoolCard(loader: Loader<Pool>) {
                 ProgressTrack(frac, height = 10.dp)
                 Spacer(Modifier.height(12.dp))
                 Row {
-                    PoolStat("মোট", Bn.num(p.totalShares), Modifier.weight(1f), Alignment.Start)
-                    PoolStat("বিক্রিত (${Bn.num((frac * 100).toInt())}%)", Bn.num(p.soldShares), Modifier.weight(1f), Alignment.CenterHorizontally)
-                    PoolStat("অবশিষ্ট", Bn.num(p.remainingShares), Modifier.weight(1f), Alignment.End)
+                    PoolStat(t("মোট", "Total"), Bn.num(p.totalShares), Modifier.weight(1f), Alignment.Start)
+                    PoolStat(t("বিক্রিত (${Bn.num((frac * 100).toInt())}%)", "Sold (${Bn.num((frac * 100).toInt())}%)"), Bn.num(p.soldShares), Modifier.weight(1f), Alignment.CenterHorizontally)
+                    PoolStat(t("অবশিষ্ট", "Remaining"), Bn.num(p.remainingShares), Modifier.weight(1f), Alignment.End)
                 }
                 RowDivider(Modifier.padding(vertical = 10.dp))
                 ToggleRow(
-                    if (p.saleEnabled) "শেয়ার বিক্রি চালু আছে" else "শেয়ার বিক্রি বন্ধ আছে",
-                    "বন্ধ থাকলে কেউ নতুন অর্ডার দিতে পারবে না",
+                    if (p.saleEnabled) t("শেয়ার বিক্রি চালু আছে", "Share sale is on") else t("শেয়ার বিক্রি বন্ধ আছে", "Share sale is off"),
+                    t("বন্ধ থাকলে কেউ নতুন অর্ডার দিতে পারবে না", "While off, nobody can place new orders"),
                     p.saleEnabled,
                     { confirmToggle = it },
                     enabled = AdminSession.can(Perm.RATE) && !action.busy,
                 )
                 if (AdminSession.can(Perm.SETTINGS)) {
                     Spacer(Modifier.height(8.dp))
-                    SecondaryButton("নতুন শেয়ার ইস্যু করুন", { issue = true }, height = 50.dp, loading = action.busy && issue)
+                    SecondaryButton(t("নতুন শেয়ার ইস্যু করুন", "Issue new shares"), { issue = true }, height = 50.dp, loading = action.busy && issue)
                 }
             }
         }
     }
     confirmToggle?.let { on ->
         ConfirmDialog(
-            if (on) "শেয়ার বিক্রি চালু করবেন?" else "শেয়ার বিক্রি বন্ধ করবেন?",
-            if (on) "শেয়ারহোল্ডাররা আবার নতুন অর্ডার দিতে পারবেন।" else "বন্ধ থাকা অবস্থায় কেউ নতুন শেয়ার কেনার অর্ডার দিতে পারবেন না। অপেক্ষমাণ অর্ডার অনুমোদন করা যাবে।",
-            if (on) "চালু করুন" else "বন্ধ করুন",
+            if (on) t("শেয়ার বিক্রি চালু করবেন?", "Turn share sale on?") else t("শেয়ার বিক্রি বন্ধ করবেন?", "Turn share sale off?"),
+            if (on) t("শেয়ারহোল্ডাররা আবার নতুন অর্ডার দিতে পারবেন।", "Shareholders will be able to place new orders again.") else t("বন্ধ থাকা অবস্থায় কেউ নতুন শেয়ার কেনার অর্ডার দিতে পারবেন না। অপেক্ষমাণ অর্ডার অনুমোদন করা যাবে।", "While off, nobody can place new buy orders. Pending orders can still be approved."),
+            if (on) t("চালু করুন", "Turn on") else t("বন্ধ করুন", "Turn off"),
             {
                 confirmToggle = null
-                action.run({ Graph.adminApi.setSale(SaleToggle(on)) }) { loader.set(it); Toaster.show(if (on) "বিক্রি চালু হয়েছে" else "বিক্রি বন্ধ হয়েছে") }
+                action.run({ Graph.adminApi.setSale(SaleToggle(on)) }) { loader.set(it); Toaster.show(if (on) t("বিক্রি চালু হয়েছে", "Sale turned on") else t("বিক্রি বন্ধ হয়েছে", "Sale turned off")) }
             },
             { confirmToggle = null },
             danger = !on,
@@ -338,7 +339,7 @@ private fun PoolCard(loader: Loader<Pool>) {
         action.run({ Graph.adminApi.issueShares(IssueShares(n)) }) {
             issue = false
             loader.set(it)
-            Toaster.show("${Bn.num(n)}টি নতুন শেয়ার ইস্যু হয়েছে")
+            Toaster.show(t("${Bn.num(n)}টি নতুন শেয়ার ইস্যু হয়েছে", "${Bn.num(n)} new shares issued"))
         }
     }
 }
@@ -361,20 +362,20 @@ private fun IssueDialog(onDismiss: () -> Unit, onIssue: (Int) -> Unit) {
     AlertDialog(
         onDismissRequest = onDismiss,
         containerColor = c.surface,
-        title = { T(if (confirm) "নিশ্চিত করুন" else "নতুন শেয়ার ইস্যু", 19.sp, FontWeight.Bold) },
+        title = { T(if (confirm) t("নিশ্চিত করুন", "Confirm") else t("নতুন শেয়ার ইস্যু", "Issue new shares"), 19.sp, FontWeight.Bold) },
         text = {
             if (!confirm) Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                Field("কয়টি নতুন শেয়ার?", text, { text = it.take(8); err = null }, keyboard = KeyboardType.Number, error = err, placeholder = "যেমন ১,০০০")
-                InfoBox("নতুন শেয়ার মোট শেয়ারের সাথে যোগ হবে এবং শেয়ারহোল্ডারদের অ্যাপে নোটিশ যাবে।", tone = Tone.WARN)
-            } else T("মোট শেয়ারের সাথে ${Bn.num(n ?: 0)}টি নতুন শেয়ার যোগ হবে। এটি অডিট লগে রেকর্ড থাকবে।", 15.sp, color = c.textSoft)
+                Field(t("কয়টি নতুন শেয়ার?", "How many new shares?"), text, { text = it.take(8); err = null }, keyboard = KeyboardType.Number, error = err, placeholder = t("যেমন ১,০০০", "e.g. 1,000"))
+                InfoBox(t("নতুন শেয়ার মোট শেয়ারের সাথে যোগ হবে এবং শেয়ারহোল্ডারদের অ্যাপে নোটিশ যাবে।", "New shares are added to the total and shareholders get an app notice."), tone = Tone.WARN)
+            } else T(t("মোট শেয়ারের সাথে ${Bn.num(n ?: 0)}টি নতুন শেয়ার যোগ হবে। এটি অডিট লগে রেকর্ড থাকবে।", "${Bn.num(n ?: 0)} new shares will be added to the total. This is recorded in the audit log."), 15.sp, color = c.textSoft)
         },
         confirmButton = {
             TextButton(onClick = {
                 if (!confirm) {
-                    if (n == null || n !in 1..10_000_000) err = "১ থেকে ১,০০,০০,০০০ এর মধ্যে সংখ্যা দিন" else confirm = true
+                    if (n == null || n !in 1..10_000_000) err = t("১ থেকে ১,০০,০০,০০০ এর মধ্যে সংখ্যা দিন", "Enter a number from 1 to 10,000,000") else confirm = true
                 } else onIssue(n ?: return@TextButton)
-            }) { T(if (confirm) "ইস্যু করুন" else "পরবর্তী", 16.sp, FontWeight.Bold, c.ink) }
+            }) { T(if (confirm) t("ইস্যু করুন", "Issue") else t("পরবর্তী", "Next"), 16.sp, FontWeight.Bold, c.ink) }
         },
-        dismissButton = { TextButton(onClick = onDismiss) { T("বাতিল", 16.sp, color = c.muted) } },
+        dismissButton = { TextButton(onClick = onDismiss) { T(t("বাতিল", "Cancel"), 16.sp, color = c.muted) } },
     )
 }

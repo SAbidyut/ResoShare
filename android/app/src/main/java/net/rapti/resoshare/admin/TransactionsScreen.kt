@@ -1,6 +1,7 @@
 package net.rapti.resoshare.admin
 
 import androidx.compose.foundation.layout.Arrangement
+import net.rapti.resoshare.core.i18n.t
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -41,7 +42,8 @@ import net.rapti.resoshare.core.ui.theme.Reso
 import net.rapti.resoshare.data.api.AdminOrder
 
 private val TX_STATUS = listOf("all", "confirmed", "pending", "cancelled")
-private val TX_LABELS = listOf("সব", "নিশ্চিত", "যাচাই চলছে", "বাতিল")
+private val TX_LABELS: List<String>
+    get() = listOf(t("সব", "All"), t("নিশ্চিত", "Confirmed"), t("যাচাই চলছে", "Verifying"), t("বাতিল", "Cancelled"))
 
 @Composable
 fun TransactionsScreen(an: AdminNav) {
@@ -54,15 +56,15 @@ fun TransactionsScreen(an: AdminNav) {
         { cursor -> Graph.adminApi.orders(TX_STATUS[filter], debounced.ifBlank { null }, cursor) },
         { it.items }, { it.nextCursor },
     )
-    val (export, exportUi) = rememberReportExport("transactions", "লেনদেন এক্সপোর্ট")
+    val (export, exportUi) = rememberReportExport("transactions", t("লেনদেন এক্সপোর্ট", "Export transactions"))
     val first = pager.first
 
     AdminScreen(
         header = {
-            ScreenHeader("লেনদেন", onBack = an::back) {
+            ScreenHeader(t("লেনদেন", "Transactions"), onBack = an::back) {
                 Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                    HeaderStat("আজ মোট", first?.let { Bn.money(it.todayTotalPaisa) } ?: "—", Modifier.weight(1f))
-                    HeaderStat("এই মাসে মোট", first?.let { Bn.money(it.monthTotalPaisa) } ?: "—", Modifier.weight(1f))
+                    HeaderStat(t("আজ মোট", "Today's total"), first?.let { Bn.money(it.todayTotalPaisa) } ?: "—", Modifier.weight(1f))
+                    HeaderStat(t("এই মাসে মোট", "This month's total"), first?.let { Bn.money(it.monthTotalPaisa) } ?: "—", Modifier.weight(1f))
                 }
             }
         },
@@ -70,21 +72,21 @@ fun TransactionsScreen(an: AdminNav) {
         onRefresh = { pager.refresh() },
         spacing = 0.dp,
     ) {
-        item("search") { SearchField(query, { query = it }, "নাম, অর্ডার বা রেফারেন্স দিয়ে খুঁজুন") }
+        item("search") { SearchField(query, { query = it }, t("নাম দিয়ে খুঁজুন", "Search by name")) }
         item("filters") { FilterPills(TX_LABELS, filter, { filter = it }, Modifier.padding(vertical = 14.dp)) }
         when (val s = pager.state) {
             is Load.Loading -> item("l") { LoadingBlock() }
             is Load.Failed -> item("e") { ErrorBlock(s.message, { pager.load() }) }
             is Load.Ready -> {
-                if (pager.items.isEmpty()) item("empty") { EmptyBlock("কোনো লেনদেন পাওয়া যায়নি", ResoIcons.List) }
+                if (pager.items.isEmpty()) item("empty") { EmptyBlock(t("কোনো লেনদেন পাওয়া যায়নি", "No transactions found"), ResoIcons.List) }
                 val groups = pager.items.groupBy { Bn.parseInstant(it.createdAt)?.toLocalDate() ?: Bn.today() }
                 groups.forEach { (day, list) ->
-                    item("h:$day") { T(dayHeader(day), 14.sp, FontWeight.Bold, Reso.colors.muted, modifier = Modifier.padding(top = 6.dp, bottom = 8.dp)) }
-                    itemsIndexed(list, key = { _, o -> o.id }) { i, o ->
+                    item("h:$day", contentType = "day") { T(dayHeader(day), 14.sp, FontWeight.Bold, Reso.colors.muted, modifier = Modifier.padding(top = 6.dp, bottom = 8.dp)) }
+                    itemsIndexed(list, key = { _, o -> o.id }, contentType = { _, _ -> "tx" }) { i, o ->
                         Column(Modifier.grouped(i == 0, i == list.lastIndex)) {
                             if (i > 0) RowDivider(Modifier.padding(horizontal = 16.dp))
                             Box(Modifier.padding(horizontal = 16.dp)) {
-                                OrderLine(o, txSubtitle(o)) { an.go(Routes.holder(o.shareholderId)) }
+                                OrderLine(o, txSubtitle(o), rich = true) { an.go(Routes.holder(o.shareholderId)) }
                             }
                         }
                     }
@@ -98,7 +100,7 @@ fun TransactionsScreen(an: AdminNav) {
                 }
                 item("export") {
                     Box(Modifier.padding(top = 8.dp)) {
-                        PrimaryButton("লেনদেন এক্সপোর্ট করুন", export.start, icon = ResoIcons.Download, loading = export.busy)
+                        PrimaryButton(t("লেনদেন এক্সপোর্ট করুন", "Export transactions"), export.start, icon = ResoIcons.Download, loading = export.busy)
                     }
                 }
             }
@@ -108,6 +110,6 @@ fun TransactionsScreen(an: AdminNav) {
 }
 
 private fun txSubtitle(o: AdminOrder): String {
-    val t = Bn.parseInstant(o.createdAt)?.let { Bn.time(it) } ?: ""
-    return "${Bn.num(o.quantity)}টি · ${methodShort(o.method)} · $t"
+    val time = Bn.parseInstant(o.createdAt)?.let { Bn.time(it) } ?: ""
+    return t("${Bn.num(o.quantity)}টি", "${Bn.num(o.quantity)} shares") + " · ${methodShort(o.method)} · $time"
 }
