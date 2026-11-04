@@ -6,7 +6,9 @@ import { q, q1, tx } from '../../db.js';
 import { ApiError } from '../../errors.js';
 import { audit } from '../../services/audit.js';
 import { mustStaff, revokeAllSessions, staffGuard } from '../../services/auth.js';
+import { createNotice } from '../../services/notices.js';
 import { getSettings, settingsJson } from '../../services/settings.js';
+import { unlockAll } from '../../services/throttle.js';
 import { toAsciiDigits } from '../../util/bn.js';
 import { tempPassword } from '../../util/crypto.js';
 import { hashPassword } from '../../util/passwords.js';
@@ -112,6 +114,21 @@ function assertGrantable(actor: StaffAuth, perms: Permission[]) {
   if (missing.length) throw new ApiError('FORBIDDEN', 'নিজের চেয়ে বেশি অনুমতি অন্য কাউকে দেওয়া যাবে না।');
 }
 
+/**
+ * H1: managing another staff member (role change, disable, reset, unlock) is only allowed for a super admin,
+ * or for someone who already holds EVERY permission of the target's current role. Otherwise a
+ * {view, settings_staff} staff could reset an `accounts` member, enroll their own authenticator and act as them.
+ */
+function assertCanManage(actor: StaffAuth, target: { role_key: string; permissions: Permission[] }) {
+  if (actor.roleKey === 'super_admin') return;
+  if (target.role_key === 'super_admin') throw new ApiError('FORBIDDEN', 'সুপার অ্যাডমিনকে শুধু সুপার অ্যাডমিন পরিবর্তন করতে পারেন।');
+  const missing = target.permissions.filter((p) => !actor.permissions.includes(p));
+  if (missing.length) throw new ApiError('FORBIDDEN', 'আপনার চেয়ে বেশি অনুমতির স্টাফকে পরিবর্তন করা যাবে না।');
+}
+
+type TargetRow = { name: string; role_key: string; status: string; permissions: Permission[] };
+const TARGET_SQL = `SELECT st.name, r.key AS role_key, st.status, r.permissions FROM staff st JOIN roles r ON r.id = st.role_id WHERE st.id = $1 FOR UPDATE OF st`;
+
 async function activeSuperAdmins(c: import('pg').PoolClient, excludeId: string): Promise<number> {
   const r = await q1<{ n: number }>(
     c,
@@ -173,13 +190,11 @@ export async function adminStaffRoutes(app: FastifyInstance, ctx: Ctx) {
     const body = parse(PatchStaffSchema, req.body);
     if (id === actor.id) throw new ApiError('FORBIDDEN', 'নিজের রোল বা অবস্থা নিজে পরিবর্তন করা যাবে না।');
     await tx(ctx.db, async (c) => {
-      const target = await q1<{ name: string; role_key: string; status: string }>(
-        c,
-        `SELECT st.name, r.key AS role_key, st.status FROM staff st JOIN roles r ON r.id = st.role_id WHERE st.id = $1 FOR UPDATE OF st`,
-        [id],
-      );
+      // L3: serialize every change that could remove a super admin (no write-skew between two admins).
+      await c.query('SELECT pg_advisory_xact_lock(727276)');
+      const target = await q1<TargetRow>(c, TARGET_SQL, [id]);
       if (!target) throw new ApiError('NOT_FOUND');
-      if (target.role_key === 'super_admin' && actor.roleKey !== 'super_admin') throw new ApiError('FORBIDDEN');
+      assertCanManage(actor, target);
       let newRole: RoleRow | undefined;
       if (body.roleId) {
         newRole = await q1<RoleRow>(c, 'SELECT id, key, name, permissions, is_system FROM roles WHERE id = $1', [body.roleId]);
@@ -223,13 +238,10 @@ export async function adminStaffRoutes(app: FastifyInstance, ctx: Ctx) {
     const temp = tempPassword();
     const hash = await hashPassword(temp);
     await tx(ctx.db, async (c) => {
-      const target = await q1<{ name: string; role_key: string }>(
-        c,
-        `SELECT st.name, r.key AS role_key FROM staff st JOIN roles r ON r.id = st.role_id WHERE st.id = $1 FOR UPDATE OF st`,
-        [id],
-      );
+      const target = await q1<TargetRow>(c, TARGET_SQL, [id]);
       if (!target) throw new ApiError('NOT_FOUND');
-      if (target.role_key === 'super_admin' && actor.roleKey !== 'super_admin') throw new ApiError('FORBIDDEN');
+      assertCanManage(actor, target);
+      await unlockAll(c, 'staff', id);
       await c.query(
         `UPDATE staff SET password_hash = $2, must_change_password = true, totp_enabled = false, totp_secret_enc = NULL, totp_last_step = NULL,
                 token_version = token_version + 1, failed_logins = 0, lock_count = 0, locked_until = NULL, updated_at = now()
@@ -250,6 +262,30 @@ export async function adminStaffRoutes(app: FastifyInstance, ctx: Ctx) {
       });
     });
     return { tempPassword: temp };
+  });
+
+  // M2: clears login throttles (all IPs) and the account-wide cap for a staff member.
+  app.post('/admin/staff/:id/unlock', { preHandler: settingsStaff }, async (req, reply) => {
+    const actor = mustStaff(req);
+    const id = idParam(req.params);
+    await tx(ctx.db, async (c) => {
+      const target = await q1<TargetRow>(c, TARGET_SQL, [id]);
+      if (!target) throw new ApiError('NOT_FOUND');
+      if (id !== actor.id) assertCanManage(actor, target);
+      await unlockAll(c, 'staff', id);
+      await audit(ctx, c, {
+        actorType: 'staff',
+        actorId: actor.id,
+        actorName: actor.name,
+        category: 'staff',
+        action: 'staff.unlock',
+        message: `স্টাফ “${target.name}” এর লগইন লক খোলা হয়েছে`,
+        tone: 'warn',
+        ip: req.ip,
+        meta: { staffId: id },
+      });
+    });
+    return reply.status(204).send();
   });
 
   app.post('/admin/roles', { preHandler: settingsStaff }, async (req, reply) => {
@@ -366,6 +402,13 @@ export async function adminStaffRoutes(app: FastifyInstance, ctx: Ctx) {
     if (JSON.stringify(before.company) !== JSON.stringify(next.company)) changed.push('কোম্পানির তথ্য');
     if (JSON.stringify(before.payment) !== JSON.stringify(next.payment)) changed.push('পেমেন্ট মাধ্যম');
     if (before.security.autoLogoutMinutes !== next.security.autoLogoutMinutes) changed.push('নিরাপত্তা');
+    // L9: where shareholders send money is the most fraud-sensitive setting.
+    const paymentDetailsChanged = (['officeAddress', 'bankName', 'accountName', 'accountNumber'] as const).some(
+      (k) => before.payment[k] !== next.payment[k],
+    );
+    if (paymentDetailsChanged && actor.roleKey !== 'super_admin') {
+      throw new ApiError('FORBIDDEN', 'পেমেন্টের তথ্য (ব্যাংক অ্যাকাউন্ট ও অফিসের ঠিকানা) শুধু সুপার অ্যাডমিন পরিবর্তন করতে পারেন।');
+    }
     await tx(ctx.db, async (c) => {
       for (const [key, value] of Object.entries(next)) {
         await c.query(
@@ -373,6 +416,15 @@ export async function adminStaffRoutes(app: FastifyInstance, ctx: Ctx) {
            ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_by = EXCLUDED.updated_by, updated_at = now()`,
           [key, JSON.stringify(value), actor.id],
         );
+      }
+      if (paymentDetailsChanged) {
+        await createNotice(c, {
+          title: 'পেমেন্টের তথ্য পরিবর্তিত হয়েছে',
+          body: 'কোম্পানির পেমেন্টের তথ্য (ব্যাংক অ্যাকাউন্ট বা অফিসের ঠিকানা) হালনাগাদ হয়েছে। টাকা পাঠানোর আগে অ্যাপের “শেয়ার কিনুন” স্ক্রিনে নতুন তথ্য দেখে নিন। কোম্পানি কখনো ফোন বা মেসেজে অ্যাকাউন্ট নম্বর বদলানোর কথা বলে না।',
+          category: 'company',
+          audience: 'all',
+          createdBy: actor.id,
+        });
       }
       if (changed.length) {
         await audit(ctx, c, {
@@ -384,7 +436,7 @@ export async function adminStaffRoutes(app: FastifyInstance, ctx: Ctx) {
           message: `সেটিংস হালনাগাদ (${changed.join(', ')})`,
           tone: 'warn',
           ip: req.ip,
-          meta: { sections: changed },
+          meta: { sections: changed, paymentDetailsChanged },
         });
       }
     });

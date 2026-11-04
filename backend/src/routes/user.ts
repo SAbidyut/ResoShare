@@ -5,10 +5,8 @@ import { q, q1, tx } from '../db.js';
 import { ApiError } from '../errors.js';
 import { audit } from '../services/audit.js';
 import {
-  lockedError,
   logoutByRefresh,
   mustUser,
-  registerFailure,
   revokeAllSessions,
   rotateRefresh,
   startSession,
@@ -33,6 +31,7 @@ import {
 import { holdingOf, poolState, rateOn } from '../services/holdings.js';
 import { visibleToSql } from '../services/notices.js';
 import { getSettings } from '../services/settings.js';
+import { clearOnSuccess, recordFailure, reserveAttempt } from '../services/throttle.js';
 import { bnCount, bnMoney, methodName, possessive } from '../util/bn.js';
 import { fakeVerify, hashPassword, verifyPassword } from '../util/passwords.js';
 import { maskEmail, maskMobile } from '../util/mask.js';
@@ -96,6 +95,8 @@ const NomineesSchema = z.object({ nominees: zNominees }).strict();
 const ChartQuery = z.object({ period: z.enum(['daily', 'weekly', 'monthly', 'yearly']).default('daily') }).loose();
 
 const BANK_REF_RE = /^[A-Za-z0-9\-/]{3,40}$/;
+const DUPLICATE_MSG = 'এই মোবাইল, ইমেইল বা NID দিয়ে আগেই রেজিস্ট্রেশন হয়েছে';
+const BANK_REF_USED = 'এই রেফারেন্স নম্বর আগে ব্যবহার করা হয়েছে';
 
 function isUniqueViolation(err: unknown): err is { code: string; constraint?: string } {
   return typeof err === 'object' && err !== null && (err as { code?: string }).code === '23505';
@@ -166,20 +167,14 @@ export async function userRoutes(app: FastifyInstance, ctx: Ctx) {
     const clash = nomineeNidClash(ctx, nidHash, body.nominees);
     if (clash) throw new ApiError('INVALID_INPUT', undefined, clash);
 
-    const dup = await q<{ mobile: string; email: string; nid_hash: string }>(
+    // L2: one generic answer, never which field matched (no account enumeration).
+    // L5: an NID only blocks while its KYC is pending/verified.
+    const dup = await q1(
       ctx.db,
-      'SELECT mobile, email, nid_hash FROM shareholders WHERE mobile = $1 OR email = $2 OR nid_hash = $3',
+      `SELECT 1 FROM shareholders WHERE mobile = $1 OR email = $2 OR (nid_hash = $3 AND kyc_status <> 'rejected') LIMIT 1`,
       [body.mobile, body.email, nidHash],
     );
-    if (dup.length) {
-      const fields: Record<string, string> = {};
-      for (const d of dup) {
-        if (d.mobile === body.mobile) fields.mobile = 'এই মোবাইল নম্বর দিয়ে আগেই রেজিস্ট্রেশন করা আছে';
-        if (d.email === body.email) fields.email = 'এই ইমেইল দিয়ে আগেই রেজিস্ট্রেশন করা আছে';
-        if (d.nid_hash === nidHash) fields.nidNumber = 'এই NID দিয়ে আগেই রেজিস্ট্রেশন করা আছে';
-      }
-      throw new ApiError('CONFLICT', 'এই তথ্য দিয়ে আগেই রেজিস্ট্রেশন করা আছে।', fields);
-    }
+    if (dup) throw new ApiError('CONFLICT', DUPLICATE_MSG);
 
     const passwordHash = await hashPassword(body.password);
     const stored: { kind: KycKind; storageName: string; size: number }[] = [];
@@ -232,7 +227,7 @@ export async function userRoutes(app: FastifyInstance, ctx: Ctx) {
         ctx,
         stored.map((s) => s.storageName),
       );
-      if (isUniqueViolation(err)) throw new ApiError('CONFLICT', 'এই তথ্য দিয়ে আগেই রেজিস্ট্রেশন করা আছে।');
+      if (isUniqueViolation(err)) throw new ApiError('CONFLICT', DUPLICATE_MSG);
       throw err;
     }
   });
@@ -250,10 +245,9 @@ export async function userRoutes(app: FastifyInstance, ctx: Ctx) {
           password_hash: string;
           token_version: number;
           account_status: string;
-          locked_until: Date | null;
         }>(
           ctx.db,
-          `SELECT id, full_name, password_hash, token_version, account_status, locked_until FROM shareholders WHERE ${isEmail ? 'email' : 'mobile'} = $1`,
+          `SELECT id, full_name, password_hash, token_version, account_status FROM shareholders WHERE ${isEmail ? 'email' : 'mobile'} = $1`,
           [key],
         )
       : undefined;
@@ -273,28 +267,43 @@ export async function userRoutes(app: FastifyInstance, ctx: Ctx) {
       });
       throw generic;
     }
-    if (user.locked_until && user.locked_until.getTime() > Date.now()) throw lockedError(user.locked_until);
-
-    const ok = await verifyPassword(user.password_hash, body.password);
-    if (!ok) {
-      const lockedFor = await registerFailure(ctx.db, 'shareholders', user.id);
+    // L1: reserve the attempt atomically before checking the password (bursts cannot exceed the limit).
+    // L2: a throttled attempt looks exactly like a wrong password (same body, same hashing time).
+    const allowed = await reserveAttempt(ctx.db, 'user', user.id, req.ip);
+    if (!allowed) {
+      await fakeVerify(body.password);
       await audit(ctx, ctx.db, {
         actorType: 'user',
         actorId: user.id,
         actorName: user.full_name,
         category: 'login',
-        action: lockedFor ? 'user.login.locked' : 'user.login.fail',
-        message: lockedFor ? `${possessive(user.full_name)} অ্যাকাউন্ট সাময়িক লক (বারবার ভুল পাসওয়ার্ড)` : `${user.full_name}: লগইন ব্যর্থ (ভুল পাসওয়ার্ড)`,
+        action: 'user.login.throttled',
+        message: `${user.full_name}: লগইন চেষ্টা আটকানো হয়েছে (বারবার ভুল পাসওয়ার্ড)`,
         tone: 'bad',
         ip: req.ip,
       });
-      if (lockedFor) throw new ApiError('LOCKED', undefined, { retryAfterSec: String(lockedFor) });
       throw generic;
     }
+
+    const ok = await verifyPassword(user.password_hash, body.password);
+    if (!ok) {
+      await recordFailure(ctx.db, 'user', user.id, req.ip);
+      await audit(ctx, ctx.db, {
+        actorType: 'user',
+        actorId: user.id,
+        actorName: user.full_name,
+        category: 'login',
+        action: 'user.login.fail',
+        message: `${user.full_name}: লগইন ব্যর্থ (ভুল পাসওয়ার্ড)`,
+        tone: 'bad',
+        ip: req.ip,
+      });
+      throw generic;
+    }
+    await clearOnSuccess(ctx.db, 'user', user.id, req.ip);
     if (user.account_status !== 'active') throw new ApiError('ACCOUNT_SUSPENDED');
 
     const tokens = await tx(ctx.db, async (c) => {
-      await c.query('UPDATE shareholders SET failed_logins = 0, lock_count = 0, locked_until = NULL WHERE id = $1', [user.id]);
       const t = await startSession(ctx, c, req, 'user', user.id, user.token_version, body.deviceId);
       await audit(ctx, c, {
         actorType: 'user',
@@ -450,7 +459,7 @@ export async function userRoutes(app: FastifyInstance, ctx: Ctx) {
       }
       if (bankRef) {
         const used = await q1(c, `SELECT 1 FROM orders WHERE method = 'bank' AND lower(reference) = lower($1) AND status <> 'cancelled'`, [bankRef]);
-        if (used) throw new ApiError('CONFLICT', 'এই রেফারেন্স নম্বর আগে ব্যবহার করা হয়েছে।', { reference: 'এই রেফারেন্স নম্বর আগে ব্যবহার করা হয়েছে' });
+        if (used) throw new ApiError('CONFLICT', `${BANK_REF_USED}।`, { reference: BANK_REF_USED });
       }
       let reference = bankRef;
       if (body.method === 'cash') {
@@ -478,6 +487,12 @@ export async function userRoutes(app: FastifyInstance, ctx: Ctx) {
         meta: { orderId: o.id },
       });
       return o;
+    }).catch((err: unknown) => {
+      // M1: the unique index is the real guard against two accounts racing with the same reference.
+      if (isUniqueViolation(err) && err.constraint === 'orders_bank_ref_unique') {
+        throw new ApiError('CONFLICT', `${BANK_REF_USED}।`, { reference: BANK_REF_USED });
+      }
+      throw err;
     });
     return reply.status(201).send(orderJson(row));
   });
@@ -573,7 +588,7 @@ export async function userRoutes(app: FastifyInstance, ctx: Ctx) {
     }
     const images = await readKycImages(files);
     const nidHash = ctx.crypto.nidIndex(body.nidNumber);
-    const other = await q1(ctx.db, 'SELECT 1 FROM shareholders WHERE nid_hash = $1 AND id <> $2', [nidHash, u.id]);
+    const other = await q1(ctx.db, `SELECT 1 FROM shareholders WHERE nid_hash = $1 AND id <> $2 AND kyc_status <> 'rejected'`, [nidHash, u.id]);
     if (other) throw new ApiError('CONFLICT', 'এই NID দিয়ে আগেই রেজিস্ট্রেশন করা আছে।', { nidNumber: 'এই NID দিয়ে আগেই রেজিস্ট্রেশন করা আছে' });
     const stored: { kind: KycKind; storageName: string; size: number }[] = [];
     try {

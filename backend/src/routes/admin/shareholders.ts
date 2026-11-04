@@ -21,12 +21,13 @@ import {
 } from '../../services/format.js';
 import { holdingOf, rateOn } from '../../services/holdings.js';
 import { createNotice } from '../../services/notices.js';
+import { unlockAll } from '../../services/throttle.js';
 import { possessive, toAsciiDigits } from '../../util/bn.js';
 import { tempPassword } from '../../util/crypto.js';
 import { maskEmail, maskMobile } from '../../util/mask.js';
 import { hashPassword } from '../../util/passwords.js';
 import { dhakaDate } from '../../util/time.js';
-import { decodeCursor, encodeCursor, idParam, likePattern, parse, uuidParam, zPageQuery, zReason } from '../../util/validate.js';
+import { decodeCursor, encodeCursor, idParam, likePattern, normalizeMobile, parse, uuidParam, zEmail, zPageQuery, zReason } from '../../util/validate.js';
 
 const ListQuery = zPageQuery.extend({
   q: z.string().max(100).optional(),
@@ -50,35 +51,42 @@ async function getHolder(ctx: Ctx, id: string): Promise<HolderRow> {
   return h;
 }
 
-/** Builds WHERE clauses for the shareholder search with only placeholders (no user text in SQL). */
-function searchFilter(qtext: string | undefined, status: string, params: unknown[]): string {
+/**
+ * Builds WHERE clauses for the shareholder search with only placeholders (no user text in SQL).
+ * L4: name / shareholder ID match by substring; mobile and email ONLY by exact, normalised full value
+ * (no partial-number oracle). The caller audits contact searches.
+ */
+function searchFilter(qtext: string | undefined, status: string, params: unknown[]): { where: string; contact: 'mobile' | 'email' | null } {
   const where: string[] = [];
   if (status === 'verified') where.push(`s.kyc_status = 'verified' AND s.account_status = 'active'`);
   if (status === 'pending') where.push(`s.kyc_status IN ('pending','rejected') AND s.account_status = 'active'`);
   if (status === 'suspended') where.push(`s.account_status = 'suspended'`);
+  let contact: 'mobile' | 'email' | null = null;
   const text = qtext?.trim();
   if (text) {
     const ascii = toAsciiDigits(text);
-    params.push(likePattern(text));
-    const pName = `$${params.length}`;
-    const conds = [`s.full_name ILIKE ${pName} ESCAPE '\\'`];
-    const idm = /^(?:RA-SH-)?0*(\d{1,9})$/i.exec(ascii);
-    if (idm) {
-      params.push(Number(idm[1]));
-      conds.push(`s.shareholder_seq = $${params.length}`);
+    const mobile = normalizeMobile(ascii);
+    if (mobile) {
+      params.push(mobile);
+      where.push(`s.mobile = $${params.length}`);
+      contact = 'mobile';
+    } else if (text.includes('@')) {
+      const email = zEmail.safeParse(text);
+      params.push(email.success ? email.data : '');
+      where.push(`s.email = $${params.length}`);
+      contact = 'email';
+    } else {
+      params.push(likePattern(text));
+      const conds = [`s.full_name ILIKE $${params.length} ESCAPE '\\'`];
+      const idm = /^(?:RA-SH-)?0*(\d{1,9})$/i.exec(ascii);
+      if (idm) {
+        params.push(Number(idm[1]));
+        conds.push(`s.shareholder_seq = $${params.length}`);
+      }
+      where.push(`(${conds.join(' OR ')})`);
     }
-    const digits = ascii.replace(/\D/g, '');
-    if (digits.length >= 4 && digits.length === ascii.replace(/[\s+-]/g, '').length) {
-      params.push(likePattern(digits));
-      conds.push(`s.mobile LIKE $${params.length} ESCAPE '\\'`);
-    }
-    if (text.includes('@')) {
-      params.push(likePattern(text.toLowerCase()));
-      conds.push(`s.email LIKE $${params.length} ESCAPE '\\'`);
-    }
-    where.push(`(${conds.join(' OR ')})`);
   }
-  return where.length ? `WHERE ${where.join(' AND ')}` : '';
+  return { where: where.length ? `WHERE ${where.join(' AND ')}` : '', contact };
 }
 
 export async function adminShareholderRoutes(app: FastifyInstance, ctx: Ctx) {
@@ -91,7 +99,21 @@ export async function adminShareholderRoutes(app: FastifyInstance, ctx: Ctx) {
     const query = parse(ListQuery, req.query);
     const cur = decodeCursor(query.cursor);
     const params: unknown[] = [];
-    const where = searchFilter(query.q, query.status, params);
+    const { where, contact } = searchFilter(query.q, query.status, params);
+    if (contact) {
+      const st = mustStaff(req);
+      await audit(ctx, ctx.db, {
+        actorType: 'staff',
+        actorId: st.id,
+        actorName: st.name,
+        category: 'shareholder',
+        action: 'contact.search',
+        message: contact === 'mobile' ? 'মোবাইল নম্বর দিয়ে শেয়ারহোল্ডার খোঁজা হয়েছে' : 'ইমেইল দিয়ে শেয়ারহোল্ডার খোঁজা হয়েছে',
+        tone: 'info',
+        ip: req.ip,
+        meta: { kind: contact },
+      });
+    }
     const total = await q1<{ n: number }>(ctx.db, `SELECT count(*)::int AS n FROM shareholders s ${where}`, params);
     const pageParams = [...params, cur?.t ?? null, cur?.id ?? '00000000-0000-0000-0000-000000000000', query.limit + 1];
     const n = params.length;
@@ -251,11 +273,20 @@ export async function adminShareholderRoutes(app: FastifyInstance, ctx: Ctx) {
     const hash = await hashPassword(temp);
     await tx(ctx.db, async (c) => {
       await c.query(
-        `UPDATE shareholders SET password_hash = $2, must_change_password = true, token_version = token_version + 1,
-                failed_logins = 0, lock_count = 0, locked_until = NULL, updated_at = now() WHERE id = $1`,
+        `UPDATE shareholders SET password_hash = $2, must_change_password = true, token_version = token_version + 1, updated_at = now() WHERE id = $1`,
         [id, hash],
       );
+      await unlockAll(c, 'user', id);
       await revokeAllSessions(c, 'user', id, 'password_reset');
+      // L9: the holder always learns about a reset (visible after they log in with the new password).
+      await createNotice(c, {
+        title: 'আপনার পাসওয়ার্ড রিসেট করা হয়েছে',
+        body: 'অফিস থেকে আপনার অ্যাকাউন্টের পাসওয়ার্ড রিসেট করা হয়েছে। আপনি অনুরোধ না করে থাকলে এখনই হটলাইনে যোগাযোগ করুন।',
+        category: 'message',
+        audience: 'user',
+        userIds: [id],
+        createdBy: st.id,
+      });
       await audit(ctx, c, {
         actorType: 'staff',
         actorId: st.id,
@@ -368,6 +399,16 @@ export async function adminShareholderRoutes(app: FastifyInstance, ctx: Ctx) {
       const h = await q1<{ full_name: string; kyc_status: string }>(c, 'SELECT full_name, kyc_status FROM shareholders WHERE id = $1 FOR UPDATE', [id]);
       if (!h) throw new ApiError('NOT_FOUND');
       if (h.kyc_status !== 'pending') throw new ApiError('CONFLICT', 'এই KYC আগেই নিষ্পত্তি হয়েছে।');
+      if (approve) {
+        // L5: never verify an NID that another live (pending/verified) account already holds.
+        const clash = await q1(
+          c,
+          `SELECT 1 FROM shareholders o WHERE o.nid_hash = (SELECT nid_hash FROM shareholders WHERE id = $1)
+              AND o.id <> $1 AND o.kyc_status <> 'rejected'`,
+          [id],
+        );
+        if (clash) throw new ApiError('CONFLICT', 'এই NID অন্য একটি অ্যাকাউন্টে ব্যবহৃত হচ্ছে।');
+      }
       await c.query(
         `UPDATE shareholders SET kyc_status = $2, kyc_note = $3, kyc_decided_at = now(), kyc_decided_by = $4, updated_at = now() WHERE id = $1`,
         [id, approve ? 'verified' : 'rejected', reason, st.id],

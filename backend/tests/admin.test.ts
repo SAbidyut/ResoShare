@@ -4,7 +4,7 @@ import { verifyAuditChain } from '../src/services/audit.js';
 import { hashPassword } from '../src/util/passwords.js';
 import { currentStep, totpAt } from '../src/util/totp.js';
 import { addDays, dhakaDate } from '../src/util/time.js';
-import { bearer, err, newStaff, newUser, randomMobile, setupApp, teardownApp, todayRatePaisa, type TestEnv } from './helpers.js';
+import { bearer, err, newStaff, newUser, ownerPool, randomMobile, setupApp, teardownApp, todayRatePaisa, type TestEnv } from './helpers.js';
 
 let env: TestEnv;
 let admin: Awaited<ReturnType<typeof newStaff>>;
@@ -290,10 +290,20 @@ describe('rates', () => {
 
 describe('audit log', () => {
   it('is append-only and its hash chain verifies', async () => {
-    await expect(env.db.query(`UPDATE audit_log SET message = 'tampered' WHERE id = (SELECT min(id) FROM audit_log)`)).rejects.toThrow(/append-only/);
-    await expect(env.db.query('DELETE FROM audit_log')).rejects.toThrow(/append-only/);
-    await expect(env.db.query('TRUNCATE audit_log')).rejects.toThrow(/append-only/);
-    expect(await verifyAuditChain(env.db)).toBeNull();
+    // the API's runtime role has no UPDATE/DELETE/TRUNCATE on audit_log at all …
+    await expect(env.db.query(`UPDATE audit_log SET message = 'tampered' WHERE id = (SELECT min(id) FROM audit_log)`)).rejects.toThrow(/permission denied/);
+    await expect(env.db.query('DELETE FROM audit_log')).rejects.toThrow(/permission denied/);
+    await expect(env.db.query('TRUNCATE audit_log')).rejects.toThrow(/permission denied/);
+    // … and even the owner is stopped by the trigger
+    const owner = ownerPool();
+    try {
+      await expect(owner.query(`UPDATE audit_log SET message = 'tampered' WHERE id = (SELECT min(id) FROM audit_log)`)).rejects.toThrow(/append-only/);
+      await expect(owner.query('DELETE FROM audit_log')).rejects.toThrow(/append-only/);
+      await expect(owner.query('TRUNCATE audit_log')).rejects.toThrow(/append-only/);
+    } finally {
+      await owner.end();
+    }
+    expect(await verifyAuditChain(env.app.ctx, env.db)).toBeNull();
 
     const page = await env.app.inject({ method: 'GET', url: A('/admin/audit?category=login&limit=5'), headers: bearer(admin.token) });
     expect(page.statusCode).toBe(200);

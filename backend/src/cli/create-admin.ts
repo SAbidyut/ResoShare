@@ -1,7 +1,8 @@
 import { parseArgs } from 'node:util';
 import { loadConfig } from '../config.js';
 import { createPool, q1, tx } from '../db.js';
-import { migrate } from '../migrate.js';
+import { assertSchemaCurrent } from '../migrate.js';
+import { Crypto } from '../util/crypto.js';
 import { audit } from '../services/audit.js';
 import { tempPassword } from '../util/crypto.js';
 import { hashPassword } from '../util/passwords.js';
@@ -25,7 +26,8 @@ async function main() {
   const config = loadConfig();
   const db = createPool(config);
   try {
-    await migrate(db);
+    await assertSchemaCurrent(db);
+    const keys = { crypto: new Crypto(config.dataEncKey, config.hmacKey) };
     const exists = await q1(db, 'SELECT 1 FROM staff WHERE email = $1', [email.data]);
     if (exists) {
       console.error('A staff member with this email already exists.');
@@ -41,7 +43,7 @@ async function main() {
         `INSERT INTO staff (name, email, mobile, password_hash, role_id, must_change_password) VALUES ($1,$2,$3,$4,$5,true) RETURNING id`,
         [name.data, email.data, mobile.data, hash, role.id],
       );
-      await audit(c, {
+      await audit(keys, c, {
         actorType: 'system',
         actorId: null,
         actorName: 'সিস্টেম (CLI)',

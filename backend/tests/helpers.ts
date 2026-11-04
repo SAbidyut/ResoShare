@@ -4,7 +4,6 @@ import sharp from 'sharp';
 import { buildApp } from '../src/app.js';
 import { loadConfig } from '../src/config.js';
 import { createPool, q1, type Db } from '../src/db.js';
-import { migrate } from '../src/migrate.js';
 import { hashPassword } from '../src/util/passwords.js';
 import { currentStep, newTotpSecret, totpAt } from '../src/util/totp.js';
 import { dhakaDate } from '../src/util/time.js';
@@ -17,11 +16,15 @@ export async function setupApp(): Promise<TestEnv> {
   if (shared) return shared;
   const config = loadConfig();
   const db = createPool(config);
-  await migrate(db);
   const app = await buildApp({ config, db, logger: false });
   await app.ready();
   shared = { app, db };
   return shared;
+}
+
+/** Owner (superuser) connection for tests that must bypass the runtime role, e.g. to prove triggers still hold. */
+export function ownerPool(): Db {
+  return createPool({ databaseUrl: process.env.TEST_OWNER_DATABASE_URL as string, dbSsl: false, dbPoolMax: 2 });
 }
 
 export async function teardownApp(): Promise<void> {

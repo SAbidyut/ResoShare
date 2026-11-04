@@ -99,6 +99,16 @@ export async function adminOrderRoutes(app: FastifyInstance, ctx: Ctx) {
       if (!holder) throw new ApiError('NOT_FOUND');
       if (ok) {
         if (holder.account_status !== 'active') throw new ApiError('CONFLICT', 'শেয়ারহোল্ডারের অ্যাকাউন্ট স্থগিত আছে।');
+        if (o.method === 'bank') {
+          // M1: one bank transfer can only ever confirm one order.
+          const dupRef = await q1(
+            c,
+            `SELECT 1 FROM orders WHERE id <> $1 AND method = 'bank' AND status <> 'cancelled'
+                AND lower(reference) = (SELECT lower(reference) FROM orders WHERE id = $1)`,
+            [id],
+          );
+          if (dupRef) throw new ApiError('CONFLICT', 'এই ব্যাংক রেফারেন্স অন্য একটি অর্ডারে ব্যবহৃত হয়েছে।', { reference: 'এই রেফারেন্স নম্বর আগে ব্যবহার করা হয়েছে' });
+        }
         const pool = await poolState(c, true); // locks the pool row: no overselling under concurrency
         if (pool.remainingShares < o.quantity) {
           throw new ApiError('INSUFFICIENT_SHARES', `মাত্র ${bnCount(pool.remainingShares)}টি শেয়ার অবশিষ্ট আছে।`);

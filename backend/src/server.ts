@@ -1,6 +1,6 @@
 import { loadConfig } from './config.js';
 import { createPool } from './db.js';
-import { migrate } from './migrate.js';
+import { assertRestrictedRole, assertSchemaCurrent, ensureRuntimeRole, migrate } from './migrate.js';
 import { buildApp } from './app.js';
 import { startScheduler } from './jobs/scheduler.js';
 
@@ -14,7 +14,29 @@ async function main() {
     process.exit(1);
   }
   const db = createPool(config);
-  await migrate(db, (m) => console.log(`[migrate] ${m}`));
+  // Migrations need the OWNER role. In production they run in the separate one-shot `migrate` job;
+  // the API only migrates itself when explicitly given MIGRATION_DATABASE_URL (or in development).
+  if (config.migrationDatabaseUrl) {
+    const owner = createPool({ ...config, databaseUrl: config.migrationDatabaseUrl, dbPoolMax: 2 });
+    try {
+      await migrate(owner, (m) => console.log(`[migrate] ${m}`));
+      if (process.env.APP_DB_USER && process.env.APP_DB_PASSWORD) {
+        await ensureRuntimeRole(owner, process.env.APP_DB_USER, process.env.APP_DB_PASSWORD);
+      }
+    } finally {
+      await owner.end().catch(() => {});
+    }
+  } else if (config.env !== 'production') {
+    await migrate(db, (m) => console.log(`[migrate] ${m}`));
+  }
+  try {
+    await assertSchemaCurrent(db);
+    if (config.env === 'production') await assertRestrictedRole(db);
+  } catch (err) {
+    console.error((err as Error).message);
+    await db.end().catch(() => {});
+    process.exit(1);
+  }
   const app = await buildApp({ config, db });
   const stopScheduler = startScheduler(app.ctx);
 

@@ -1,6 +1,6 @@
 import type { Ctx } from '../context.js';
-import { q, q1, tx } from '../db.js';
-import { audit } from '../services/audit.js';
+import { q, q1, tx, type Client } from '../db.js';
+import { audit, verifyAuditChain } from '../services/audit.js';
 import { createNotice } from '../services/notices.js';
 import { bnDate, bnMoney } from '../util/bn.js';
 import { dhakaDate } from '../util/time.js';
@@ -48,10 +48,25 @@ export async function runRateNoticeJob(ctx: Ctx, today: string = dhakaDate()): P
   });
 }
 
+/** Recomputes the keyed audit hash chain; logs an error-level event when it does not match. */
+export async function runAuditVerifyJob(ctx: Ctx, client: Client = ctx.db): Promise<number | null> {
+  const brokenAt = await verifyAuditChain(ctx, client);
+  if (brokenAt !== null) {
+    ctx.log.error({ event: 'audit_chain_mismatch', brokenAtId: brokenAt }, 'AUDIT LOG INTEGRITY FAILURE: hash chain mismatch');
+  } else {
+    ctx.log.info({ event: 'audit_chain_ok' }, 'audit log hash chain verified');
+  }
+  return brokenAt;
+}
+
 export async function runCleanupJob(ctx: Ctx): Promise<void> {
   await ctx.db.query(`DELETE FROM mfa_challenges WHERE expires_at < now() - interval '1 day'`);
   await ctx.db.query(`DELETE FROM sessions WHERE (expires_at < now() - interval '7 days') OR (revoked_at < now() - interval '30 days')`);
   await ctx.db.query(`DELETE FROM refresh_tokens WHERE expires_at < now() - interval '1 day'`);
+  await ctx.db.query(`DELETE FROM login_failures WHERE at < now() - interval '1 day'`);
+  await ctx.db.query(
+    `DELETE FROM login_throttle WHERE updated_at < now() - interval '1 day' AND (locked_until IS NULL OR locked_until < now())`,
+  );
 }
 
 export function startScheduler(ctx: Ctx): () => void {
@@ -72,10 +87,17 @@ export function startScheduler(ctx: Ctx): () => void {
   const hourly = setInterval(() => {
     runCleanupJob(ctx).catch((err) => ctx.log.error({ err }, 'cleanup job failed'));
   }, 3_600_000);
+  const verifyAudit = () => {
+    runAuditVerifyJob(ctx).catch((err) => ctx.log.error({ err }, 'audit verification job failed'));
+  };
+  verifyAudit(); // at boot
+  const daily = setInterval(verifyAudit, 24 * 3_600_000);
   minute.unref();
   hourly.unref();
+  daily.unref();
   return () => {
     clearInterval(minute);
     clearInterval(hourly);
+    clearInterval(daily);
   };
 }

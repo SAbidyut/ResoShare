@@ -310,39 +310,3 @@ export function mustStaff(req: FastifyRequest) {
   if (!req.staffAuth) throw new ApiError('UNAUTHORIZED');
   return req.staffAuth;
 }
-
-// ---------------------------------------------------------------------------
-// Lockout
-
-export const MAX_FAILED = 5;
-export const BASE_LOCK_MS = 15 * 60 * 1000;
-export const MAX_LOCK_MS = 24 * 3600 * 1000;
-
-export function lockDuration(lockCount: number): number {
-  return Math.min(BASE_LOCK_MS * 2 ** lockCount, MAX_LOCK_MS);
-}
-
-/** Records a failed attempt; returns retryAfterSec when the account just became locked. */
-export async function registerFailure(
-  client: pg.PoolClient | pg.Pool,
-  table: 'shareholders' | 'staff',
-  id: string,
-): Promise<number | null> {
-  const row = await q1<{ failed_logins: number; lock_count: number }>(
-    client,
-    `UPDATE ${table} SET failed_logins = failed_logins + 1, updated_at = now() WHERE id = $1 RETURNING failed_logins, lock_count`,
-    [id],
-  );
-  if (!row || row.failed_logins < MAX_FAILED) return null;
-  const ms = lockDuration(row.lock_count);
-  await client.query(
-    `UPDATE ${table} SET failed_logins = 0, lock_count = lock_count + 1, locked_until = now() + ($2::bigint * interval '1 millisecond') WHERE id = $1`,
-    [id, ms],
-  );
-  return Math.ceil(ms / 1000);
-}
-
-export function lockedError(lockedUntil: Date): ApiError {
-  const sec = Math.max(1, Math.ceil((lockedUntil.getTime() - Date.now()) / 1000));
-  return new ApiError('LOCKED', undefined, { retryAfterSec: String(sec) });
-}

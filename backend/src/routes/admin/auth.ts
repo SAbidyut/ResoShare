@@ -5,11 +5,9 @@ import { q1, tx } from '../../db.js';
 import { ApiError } from '../../errors.js';
 import { audit } from '../../services/audit.js';
 import {
-  lockedError,
   logoutByRefresh,
   MFA_TTL_SEC,
   mustStaff,
-  registerFailure,
   revokeAllSessions,
   rotateRefresh,
   signMfa,
@@ -17,6 +15,7 @@ import {
   startSession,
   verifyMfa,
 } from '../../services/auth.js';
+import { clearOnSuccess, recordFailure, refundAttempt, reserveAttempt } from '../../services/throttle.js';
 import { fakeVerify, hashPassword, verifyPassword } from '../../util/passwords.js';
 import { newTotpSecret, otpauthUri, verifyTotp } from '../../util/totp.js';
 import { maskEmail } from '../../util/mask.js';
@@ -69,8 +68,7 @@ export async function adminAuthRoutes(app: FastifyInstance, ctx: Ctx) {
           password_hash: string;
           status: string;
           totp_enabled: boolean;
-          locked_until: Date | null;
-        }>(ctx.db, 'SELECT id, name, email, password_hash, status, totp_enabled, locked_until FROM staff WHERE email = $1', [email])
+        }>(ctx.db, 'SELECT id, name, email, password_hash, status, totp_enabled FROM staff WHERE email = $1', [email])
       : undefined;
 
     if (!staff) {
@@ -87,27 +85,39 @@ export async function adminAuthRoutes(app: FastifyInstance, ctx: Ctx) {
       });
       throw generic;
     }
-    if (staff.locked_until && staff.locked_until.getTime() > Date.now()) throw lockedError(staff.locked_until);
-    const ok = await verifyPassword(staff.password_hash, body.password);
-    if (!ok || staff.status !== 'active') {
-      const lockedFor = ok ? null : await registerFailure(ctx.db, 'staff', staff.id);
+    // Throttled per (staff, IP); a throttled attempt is indistinguishable from a wrong password.
+    if (!(await reserveAttempt(ctx.db, 'staff', staff.id, req.ip))) {
+      await fakeVerify(body.password);
       await audit(ctx, ctx.db, {
         actorType: 'staff',
         actorId: staff.id,
         actorName: staff.name,
         category: 'login',
-        action: lockedFor ? 'staff.login.locked' : 'staff.login.fail',
-        message: lockedFor
-          ? `অ্যাডমিন অ্যাকাউন্ট সাময়িক লক: ${staff.name}`
-          : ok
-            ? `নিষ্ক্রিয় স্টাফের লগইন চেষ্টা: ${staff.name}`
-            : `অ্যাডমিন লগইন ব্যর্থ (ভুল পাসওয়ার্ড): ${staff.name}`,
+        action: 'staff.login.throttled',
+        message: `অ্যাডমিন লগইন চেষ্টা আটকানো হয়েছে (বারবার ভুল চেষ্টা): ${staff.name}`,
         tone: 'bad',
         ip: req.ip,
       });
-      if (lockedFor) throw new ApiError('LOCKED', undefined, { retryAfterSec: String(lockedFor) });
       throw generic;
     }
+    const ok = await verifyPassword(staff.password_hash, body.password);
+    if (!ok || staff.status !== 'active') {
+      if (!ok) await recordFailure(ctx.db, 'staff', staff.id, req.ip);
+      else await refundAttempt(ctx.db, 'staff', staff.id, req.ip);
+      await audit(ctx, ctx.db, {
+        actorType: 'staff',
+        actorId: staff.id,
+        actorName: staff.name,
+        category: 'login',
+        action: 'staff.login.fail',
+        message: ok ? `নিষ্ক্রিয় স্টাফের লগইন চেষ্টা: ${staff.name}` : `অ্যাডমিন লগইন ব্যর্থ (ভুল পাসওয়ার্ড): ${staff.name}`,
+        tone: 'bad',
+        ip: req.ip,
+      });
+      throw generic;
+    }
+    // Password ok: give the reserved attempt back. Counters only reset after a correct OTP.
+    await refundAttempt(ctx.db, 'staff', staff.id, req.ip);
 
     const enrollSecret = staff.totp_enabled ? null : newTotpSecret();
     const challenge = await q1<{ id: string }>(
@@ -128,6 +138,8 @@ export async function adminAuthRoutes(app: FastifyInstance, ctx: Ctx) {
     const body = parse(MfaSchema, req.body);
     const { staffId, challengeId } = await verifyMfa(ctx, body.mfaToken);
     const code = body.code.trim();
+    // Every OTP try is reserved against the same (staff, IP) throttle before it is checked.
+    if (!(await reserveAttempt(ctx.db, 'staff', staffId, req.ip))) throw new ApiError('MFA_INVALID');
 
     const result = await tx(ctx.db, async (c) => {
       const ch = await q1<{ staff_id: string; pending_secret_enc: string | null; device_id: string | null; attempts: number; expires_at: Date; used_at: Date | null }>(
@@ -145,14 +157,12 @@ export async function adminAuthRoutes(app: FastifyInstance, ctx: Ctx) {
         totp_secret_enc: string | null;
         totp_enabled: boolean;
         totp_last_step: number | null;
-        locked_until: Date | null;
       }>(
         c,
-        'SELECT name, status, token_version, totp_secret_enc, totp_enabled, totp_last_step, locked_until FROM staff WHERE id = $1 FOR UPDATE',
+        'SELECT name, status, token_version, totp_secret_enc, totp_enabled, totp_last_step FROM staff WHERE id = $1 FOR UPDATE',
         [staffId],
       );
       if (!st || st.status !== 'active') return { error: new ApiError('MFA_INVALID') };
-      if (st.locked_until && st.locked_until.getTime() > Date.now()) return { error: lockedError(st.locked_until) };
 
       const enrolling = !st.totp_enabled;
       const secretEnc = enrolling ? ch.pending_secret_enc : st.totp_secret_enc;
@@ -161,26 +171,25 @@ export async function adminAuthRoutes(app: FastifyInstance, ctx: Ctx) {
       const step = verifyTotp(secret, code, enrolling ? null : st.totp_last_step);
       if (step === null) {
         await c.query('UPDATE mfa_challenges SET attempts = attempts + 1 WHERE id = $1', [challengeId]);
-        const lockedFor = await registerFailure(c, 'staff', staffId);
         await audit(ctx, c, {
           actorType: 'staff',
           actorId: staffId,
           actorName: st.name,
           category: 'login',
-          action: lockedFor ? 'staff.mfa.locked' : 'staff.mfa.fail',
-          message: lockedFor ? `অ্যাডমিন অ্যাকাউন্ট সাময়িক লক (ভুল OTP): ${st.name}` : `ভুল OTP দিয়ে অ্যাডমিন লগইন চেষ্টা: ${st.name}`,
+          action: 'staff.mfa.fail',
+          message: `ভুল OTP দিয়ে অ্যাডমিন লগইন চেষ্টা: ${st.name}`,
           tone: 'bad',
           ip: req.ip,
         });
-        return { error: lockedFor ? new ApiError('LOCKED', undefined, { retryAfterSec: String(lockedFor) }) : new ApiError('MFA_INVALID') };
+        return { error: new ApiError('MFA_INVALID'), otpFailed: true };
       }
       await c.query('UPDATE mfa_challenges SET used_at = now() WHERE id = $1', [challengeId]);
       await c.query(
-        `UPDATE staff SET totp_last_step = $2, totp_secret_enc = $3, totp_enabled = true,
-                failed_logins = 0, lock_count = 0, locked_until = NULL, last_active_at = now(), updated_at = now()
+        `UPDATE staff SET totp_last_step = $2, totp_secret_enc = $3, totp_enabled = true, last_active_at = now(), updated_at = now()
           WHERE id = $1`,
         [staffId, step, secretEnc],
       );
+      await clearOnSuccess(c, 'staff', staffId, req.ip);
       const tokens = await startSession(ctx, c, req, 'staff', staffId, st.token_version, ch.device_id);
       await audit(ctx, c, {
         actorType: 'staff',
@@ -194,7 +203,10 @@ export async function adminAuthRoutes(app: FastifyInstance, ctx: Ctx) {
       });
       return { tokens };
     });
-    if ('error' in result && result.error) throw result.error;
+    if ('error' in result && result.error) {
+      if ('otpFailed' in result && result.otpFailed) await recordFailure(ctx.db, 'staff', staffId, req.ip);
+      throw result.error;
+    }
     const t = (result as { tokens: { accessToken: string; refreshToken: string; expiresIn: number } }).tokens;
     return {
       tokens: { accessToken: t.accessToken, refreshToken: t.refreshToken, expiresIn: t.expiresIn },

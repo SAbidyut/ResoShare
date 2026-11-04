@@ -16,6 +16,7 @@ const EnvSchema = z.object({
   HOST: z.string().default('0.0.0.0'),
   PORT: z.coerce.number().int().min(1).max(65535).default(3000),
   DATABASE_URL: z.string().min(1, 'DATABASE_URL is required'),
+  MIGRATION_DATABASE_URL: z.string().min(1).optional(),
   DB_SSL: z.enum(['true', 'false']).default('false'),
   DB_POOL_MAX: z.coerce.number().int().min(1).max(100).default(10),
   JWT_SECRET: strongSecret('JWT_SECRET', 32),
@@ -41,6 +42,7 @@ export type Config = {
   host: string;
   port: number;
   databaseUrl: string;
+  migrationDatabaseUrl: string | null;
   dbSsl: boolean;
   dbPoolMax: number;
   jwtSecret: Uint8Array;
@@ -84,6 +86,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
     host: e.HOST,
     port: e.PORT,
     databaseUrl: e.DATABASE_URL,
+    migrationDatabaseUrl: e.MIGRATION_DATABASE_URL ?? null,
     dbSsl: e.DB_SSL === 'true',
     dbPoolMax: e.DB_POOL_MAX,
     jwtSecret: new TextEncoder().encode(e.JWT_SECRET),

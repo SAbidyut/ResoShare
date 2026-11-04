@@ -1,5 +1,10 @@
 # ResoShare production stack: Caddy (automatic HTTPS) → API → PostgreSQL.
 # Usage: cp .env.example .env && (fill secrets) && docker compose up -d --build
+#
+# Database roles:
+#   resoshare      owner/superuser — used ONLY by the one-shot `migrate` job (schema changes, role grants)
+#   resoshare_app  restricted runtime role — the only credentials the API ever sees
+#                  (no superuser, owns nothing, audit_log: SELECT + INSERT only)
 services:
   db:
     image: postgres:16-alpine
@@ -18,21 +23,43 @@ services:
       retries: 10
     security_opt: ["no-new-privileges:true"]
 
-  api:
+  migrate:
     build: .
-    restart: unless-stopped
-    env_file: .env
+    restart: "no"
+    command: ["node", "dist/src/cli/migrate.js"]
     environment:
       NODE_ENV: production
       DATABASE_URL: postgres://resoshare:${POSTGRES_PASSWORD}@db:5432/resoshare
-      PUBLIC_BASE_URL: https://${DOMAIN:?set DOMAIN in .env}
-      UPLOAD_DIR: /data/uploads
-      TRUST_PROXY: "1"             # exactly one trusted hop: the Caddy container
-    volumes:
-      - uploads:/data/uploads
+      APP_DB_USER: resoshare_app
+      APP_DB_PASSWORD: ${POSTGRES_APP_PASSWORD:?set POSTGRES_APP_PASSWORD in .env}
     depends_on:
       db:
         condition: service_healthy
+    networks: [internal]
+    read_only: true
+    tmpfs: ["/tmp"]
+    cap_drop: ["ALL"]
+    security_opt: ["no-new-privileges:true"]
+
+  api:
+    build: .
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      # Runtime role only. The API refuses to start if this is a superuser or the owner of audit_log.
+      DATABASE_URL: postgres://resoshare_app:${POSTGRES_APP_PASSWORD}@db:5432/resoshare
+      PUBLIC_BASE_URL: https://${DOMAIN:?set DOMAIN in .env}
+      UPLOAD_DIR: /data/uploads
+      TRUST_PROXY: "1"             # exactly one trusted hop: the Caddy container
+      JWT_SECRET: ${JWT_SECRET:?set JWT_SECRET in .env}
+      HMAC_KEY: ${HMAC_KEY:?set HMAC_KEY in .env}
+      DATA_ENC_KEY: ${DATA_ENC_KEY:?set DATA_ENC_KEY in .env}
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+    volumes:
+      - uploads:/data/uploads
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
     networks: [internal, web]
     read_only: true
     tmpfs: ["/tmp"]
@@ -54,6 +81,10 @@ services:
       - caddy_config:/config
     depends_on: [api]
     networks: [web]
+    read_only: true
+    tmpfs: ["/tmp"]
+    cap_drop: ["ALL"]
+    cap_add: ["NET_BIND_SERVICE"]  # only to bind :80/:443
     security_opt: ["no-new-privileges:true"]
 
 networks:

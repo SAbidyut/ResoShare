@@ -181,6 +181,7 @@ Staff who have not enrolled get an enrollment secret on the first step and confi
 | POST | `/admin/staff` | `{ name, email, mobile, roleId }` | `{ staff: Staff, tempPassword }` | settings_staff |
 | PATCH | `/admin/staff/:id` | `{ roleId?, status?: "active"|"disabled" }` | `Staff` | settings_staff |
 | POST | `/admin/staff/:id/reset` | | `{ tempPassword }` (also clears TOTP) | settings_staff |
+| POST | `/admin/staff/:id/unlock` | | `204` (clears login throttles on all IPs; non-super admins only for staff whose permissions they all hold) | settings_staff |
 | POST | `/admin/roles` | `{ name, permissions: string[] }` | `Role` | settings_staff |
 | PATCH | `/admin/roles/:id` | `{ name?, permissions? }` | `Role` (system roles immutable) | settings_staff |
 | GET | `/admin/audit?category=` | paged | `{ items: AuditEntry[], nextCursor }` | settings_staff |

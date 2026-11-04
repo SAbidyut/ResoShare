@@ -48,17 +48,17 @@ describe('registration', () => {
     expect(byEmail.statusCode).toBe(200);
   });
 
-  it('rejects duplicate mobile and NID with CONFLICT', async () => {
+  it('rejects duplicate mobile and NID with one generic CONFLICT (no field named)', async () => {
     const nid = randomNid();
     const first = await registerUser(env.app, { nidNumber: nid });
     expect(first.res.statusCode).toBe(201);
     const dupMobile = await registerUser(env.app, { mobile: first.data.mobile });
-    expect(dupMobile.res.statusCode).toBe(409);
-    expect(err(dupMobile.res).code).toBe('CONFLICT');
-    expect(err(dupMobile.res).fields?.mobile).toBeTruthy();
     const dupNid = await registerUser(env.app, { nidNumber: nid });
-    expect(dupNid.res.statusCode).toBe(409);
-    expect(err(dupNid.res).fields?.nidNumber).toBeTruthy();
+    const dupEmail = await registerUser(env.app, { email: first.data.email });
+    for (const r of [dupMobile.res, dupNid.res, dupEmail.res]) {
+      expect(r.statusCode).toBe(409);
+      expect(r.json()).toEqual({ error: { code: 'CONFLICT', message: 'এই মোবাইল, ইমেইল বা NID দিয়ে আগেই রেজিস্ট্রেশন হয়েছে' } });
+    }
   });
 
   it('validates input: weak password, under-age, nominee % sum, missing rules acceptance', async () => {
@@ -151,15 +151,19 @@ describe('login security', () => {
     expect(err(wrong)).toEqual(err(unknown));
   });
 
-  it('locks the account after 5 failures and keeps it locked even with the right password', async () => {
+  it('throttles 5 failures per (account, IP): that IP gets the generic 401 even with the right password, other IPs still work', async () => {
     const u = await newUser(env.app);
-    let last;
-    for (let i = 0; i < 5; i++) last = await loginUser(env.app, u.data.mobile, 'Wrong-pass-1');
-    expect(last?.statusCode).toBe(423);
-    expect(err(last!).code).toBe('LOCKED');
-    expect(Number(err(last!).fields?.retryAfterSec)).toBeGreaterThan(800);
-    const right = await loginUser(env.app, u.data.mobile);
-    expect(right.statusCode).toBe(423);
+    const ipA = '203.0.113.10';
+    const login = (password: string, remoteAddress: string) =>
+      env.app.inject({ method: 'POST', url: '/api/v1/auth/login', remoteAddress, payload: { identifier: u.data.mobile, password, deviceId: 'test-device-1' } });
+    let wrong;
+    for (let i = 0; i < 5; i++) wrong = await login('Wrong-pass-1', ipA);
+    expect(wrong?.statusCode).toBe(401);
+    const blocked = await login(u.data.password, ipA);
+    expect(blocked.statusCode).toBe(401);
+    expect(blocked.json()).toEqual(wrong?.json()); // indistinguishable from a wrong password
+    const otherIp = await login(u.data.password, '198.51.100.7');
+    expect(otherIp.statusCode).toBe(200);
   });
 
   it('rotates refresh tokens and revokes the family on reuse', async () => {
