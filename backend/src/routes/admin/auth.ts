@@ -75,7 +75,7 @@ export async function adminAuthRoutes(app: FastifyInstance, ctx: Ctx) {
 
     if (!staff) {
       await fakeVerify(body.password);
-      await audit(ctx.db, {
+      await audit(ctx, ctx.db, {
         actorType: 'anonymous',
         actorId: null,
         actorName: email ? maskEmail(email) : 'অজানা',
@@ -91,7 +91,7 @@ export async function adminAuthRoutes(app: FastifyInstance, ctx: Ctx) {
     const ok = await verifyPassword(staff.password_hash, body.password);
     if (!ok || staff.status !== 'active') {
       const lockedFor = ok ? null : await registerFailure(ctx.db, 'staff', staff.id);
-      await audit(ctx.db, {
+      await audit(ctx, ctx.db, {
         actorType: 'staff',
         actorId: staff.id,
         actorName: staff.name,
@@ -162,7 +162,7 @@ export async function adminAuthRoutes(app: FastifyInstance, ctx: Ctx) {
       if (step === null) {
         await c.query('UPDATE mfa_challenges SET attempts = attempts + 1 WHERE id = $1', [challengeId]);
         const lockedFor = await registerFailure(c, 'staff', staffId);
-        await audit(c, {
+        await audit(ctx, c, {
           actorType: 'staff',
           actorId: staffId,
           actorName: st.name,
@@ -182,7 +182,7 @@ export async function adminAuthRoutes(app: FastifyInstance, ctx: Ctx) {
         [staffId, step, secretEnc],
       );
       const tokens = await startSession(ctx, c, req, 'staff', staffId, st.token_version, ch.device_id);
-      await audit(c, {
+      await audit(ctx, c, {
         actorType: 'staff',
         actorId: staffId,
         actorName: st.name,
@@ -231,7 +231,7 @@ export async function adminAuthRoutes(app: FastifyInstance, ctx: Ctx) {
     await tx(ctx.db, async (c) => {
       await c.query('UPDATE staff SET password_hash = $2, must_change_password = false, updated_at = now() WHERE id = $1', [s.id, hash]);
       await revokeAllSessions(c, 'staff', s.id, 'password_change', s.sid);
-      await audit(c, {
+      await audit(ctx, c, {
         actorType: 'staff',
         actorId: s.id,
         actorName: s.name,

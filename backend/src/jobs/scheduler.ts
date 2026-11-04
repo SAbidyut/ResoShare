@@ -30,7 +30,7 @@ export async function runRateNoticeJob(ctx: Ctx, today: string = dhakaDate()): P
             category: 'rate',
             audience: 'all',
           });
-          await audit(c, {
+          await audit(ctx, c, {
             actorType: 'system',
             actorId: null,
             actorName: 'সিস্টেম',

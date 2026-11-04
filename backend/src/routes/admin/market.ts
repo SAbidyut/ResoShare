@@ -125,7 +125,7 @@ export async function adminMarketRoutes(app: FastifyInstance, ctx: Ctx) {
       }
       const first = sorted[0];
       const lastItem = sorted[sorted.length - 1];
-      await audit(c, {
+      await audit(ctx, c, {
         actorType: 'staff',
         actorId: st.id,
         actorName: st.name,
@@ -149,7 +149,7 @@ export async function adminMarketRoutes(app: FastifyInstance, ctx: Ctx) {
     const body = parse(PoolSchema, req.body);
     await tx(ctx.db, async (c) => {
       await c.query('UPDATE share_pool SET sale_enabled = $1, updated_at = now() WHERE id = 1', [body.saleEnabled]);
-      await audit(c, {
+      await audit(ctx, c, {
         actorType: 'staff',
         actorId: st.id,
         actorName: st.name,
@@ -169,7 +169,7 @@ export async function adminMarketRoutes(app: FastifyInstance, ctx: Ctx) {
     await tx(ctx.db, async (c) => {
       const p = await poolState(c, true);
       await c.query('UPDATE share_pool SET total_shares = total_shares + $1, updated_at = now() WHERE id = 1', [body.additionalShares]);
-      await audit(c, {
+      await audit(ctx, c, {
         actorType: 'staff',
         actorId: st.id,
         actorName: st.name,
@@ -231,7 +231,7 @@ export async function adminMarketRoutes(app: FastifyInstance, ctx: Ctx) {
         audience: 'all',
         createdBy: st.id,
       });
-      await audit(c, {
+      await audit(ctx, c, {
         actorType: 'staff',
         actorId: st.id,
         actorName: st.name,

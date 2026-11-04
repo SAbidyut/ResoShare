@@ -126,7 +126,7 @@ export async function adminOrderRoutes(app: FastifyInstance, ctx: Ctx) {
         userIds: [o.shareholder_id],
         createdBy: st.id,
       });
-      await audit(c, {
+      await audit(ctx, c, {
         actorType: 'staff',
         actorId: st.id,
         actorName: st.name,

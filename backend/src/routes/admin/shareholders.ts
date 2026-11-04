@@ -183,7 +183,7 @@ export async function adminShareholderRoutes(app: FastifyInstance, ctx: Ctx) {
     const id = idParam(req.params);
     const s = await q1<{ full_name: string; mobile: string; email: string }>(ctx.db, 'SELECT full_name, mobile, email FROM shareholders WHERE id = $1', [id]);
     if (!s) throw new ApiError('NOT_FOUND');
-    await audit(ctx.db, {
+    await audit(ctx, ctx.db, {
       actorType: 'staff',
       actorId: st.id,
       actorName: st.name,
@@ -206,7 +206,7 @@ export async function adminShareholderRoutes(app: FastifyInstance, ctx: Ctx) {
     await tx(ctx.db, async (c) => {
       await c.query(`UPDATE shareholders SET account_status = 'suspended', suspend_reason = $2, updated_at = now() WHERE id = $1`, [id, body.reason]);
       await revokeAllSessions(c, 'user', id, 'suspended');
-      await audit(c, {
+      await audit(ctx, c, {
         actorType: 'staff',
         actorId: st.id,
         actorName: st.name,
@@ -228,7 +228,7 @@ export async function adminShareholderRoutes(app: FastifyInstance, ctx: Ctx) {
     if (h.account_status === 'active') throw new ApiError('CONFLICT', 'অ্যাকাউন্টটি আগেই সক্রিয় আছে।');
     await tx(ctx.db, async (c) => {
       await c.query(`UPDATE shareholders SET account_status = 'active', suspend_reason = NULL, updated_at = now() WHERE id = $1`, [id]);
-      await audit(c, {
+      await audit(ctx, c, {
         actorType: 'staff',
         actorId: st.id,
         actorName: st.name,
@@ -256,7 +256,7 @@ export async function adminShareholderRoutes(app: FastifyInstance, ctx: Ctx) {
         [id, hash],
       );
       await revokeAllSessions(c, 'user', id, 'password_reset');
-      await audit(c, {
+      await audit(ctx, c, {
         actorType: 'staff',
         actorId: st.id,
         actorName: st.name,
@@ -278,7 +278,7 @@ export async function adminShareholderRoutes(app: FastifyInstance, ctx: Ctx) {
     const h = await getHolder(ctx, id);
     await tx(ctx.db, async (c) => {
       await createNotice(c, { title: body.title, body: body.body, category: 'message', audience: 'user', userIds: [id], createdBy: st.id });
-      await audit(c, {
+      await audit(ctx, c, {
         actorType: 'staff',
         actorId: st.id,
         actorName: st.name,
@@ -309,7 +309,7 @@ export async function adminShareholderRoutes(app: FastifyInstance, ctx: Ctx) {
       req.log.error({ err, fileId }, 'kyc file unreadable');
       throw new ApiError('NOT_FOUND');
     }
-    await audit(ctx.db, {
+    await audit(ctx, ctx.db, {
       actorType: 'staff',
       actorId: st.id,
       actorName: st.name,
@@ -382,7 +382,7 @@ export async function adminShareholderRoutes(app: FastifyInstance, ctx: Ctx) {
         userIds: [id],
         createdBy: st.id,
       });
-      await audit(c, {
+      await audit(ctx, c, {
         actorType: 'staff',
         actorId: st.id,
         actorName: st.name,

@@ -151,7 +151,7 @@ export async function adminReportRoutes(app: FastifyInstance, ctx: Ctx) {
       ]);
     }
 
-    await audit(ctx.db, {
+    await audit(ctx, ctx.db, {
       actorType: 'staff',
       actorId: st.id,
       actorName: st.name,

@@ -214,7 +214,7 @@ export async function userRoutes(app: FastifyInstance, ctx: Ctx) {
             f.size,
           ]);
         }
-        await audit(c, {
+        await audit(ctx, c, {
           actorType: 'user',
           actorId: row.id,
           actorName: body.fullName,
@@ -261,7 +261,7 @@ export async function userRoutes(app: FastifyInstance, ctx: Ctx) {
 
     if (!user) {
       await fakeVerify(body.password);
-      await audit(ctx.db, {
+      await audit(ctx, ctx.db, {
         actorType: 'anonymous',
         actorId: null,
         actorName: masked,
@@ -278,7 +278,7 @@ export async function userRoutes(app: FastifyInstance, ctx: Ctx) {
     const ok = await verifyPassword(user.password_hash, body.password);
     if (!ok) {
       const lockedFor = await registerFailure(ctx.db, 'shareholders', user.id);
-      await audit(ctx.db, {
+      await audit(ctx, ctx.db, {
         actorType: 'user',
         actorId: user.id,
         actorName: user.full_name,
@@ -296,7 +296,7 @@ export async function userRoutes(app: FastifyInstance, ctx: Ctx) {
     const tokens = await tx(ctx.db, async (c) => {
       await c.query('UPDATE shareholders SET failed_logins = 0, lock_count = 0, locked_until = NULL WHERE id = $1', [user.id]);
       const t = await startSession(ctx, c, req, 'user', user.id, user.token_version, body.deviceId);
-      await audit(c, {
+      await audit(ctx, c, {
         actorType: 'user',
         actorId: user.id,
         actorName: user.full_name,
@@ -341,7 +341,7 @@ export async function userRoutes(app: FastifyInstance, ctx: Ctx) {
     await tx(ctx.db, async (c) => {
       await c.query('UPDATE shareholders SET password_hash = $2, must_change_password = false, updated_at = now() WHERE id = $1', [u.id, hash]);
       await revokeAllSessions(c, 'user', u.id, 'password_change', u.sid);
-      await audit(c, {
+      await audit(ctx, c, {
         actorType: 'user',
         actorId: u.id,
         actorName: u.name,
@@ -466,7 +466,7 @@ export async function userRoutes(app: FastifyInstance, ctx: Ctx) {
         [u.id, body.quantity, rate, amount, body.method, reference],
       );
       if (!o) throw new Error('order insert failed');
-      await audit(c, {
+      await audit(ctx, c, {
         actorType: 'user',
         actorId: u.id,
         actorName: holder.full_name,
@@ -495,7 +495,7 @@ export async function userRoutes(app: FastifyInstance, ctx: Ctx) {
           WHERE id = $1 RETURNING id, order_seq, quantity, rate_paisa, amount_paisa, method, reference, status, note, created_at, decided_at`,
         [id],
       );
-      await audit(c, {
+      await audit(ctx, c, {
         actorType: 'user',
         actorId: u.id,
         actorName: u.name,
@@ -548,7 +548,7 @@ export async function userRoutes(app: FastifyInstance, ctx: Ctx) {
     await tx(ctx.db, async (c) => {
       await c.query('DELETE FROM nominees WHERE shareholder_id = $1', [u.id]);
       await insertNominees(ctx, c, u.id, body.nominees);
-      await audit(c, {
+      await audit(ctx, c, {
         actorType: 'user',
         actorId: u.id,
         actorName: u.name,
@@ -591,7 +591,7 @@ export async function userRoutes(app: FastifyInstance, ctx: Ctx) {
             WHERE id = $1`,
           [u.id, ctx.crypto.encryptText(body.nidNumber), nidHash, body.nidNumber.slice(-3), body.nidNumber.length, body.dob],
         );
-        await audit(c, {
+        await audit(ctx, c, {
           actorType: 'user',
           actorId: u.id,
           actorName: u.name,

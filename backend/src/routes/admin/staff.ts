@@ -150,7 +150,7 @@ export async function adminStaffRoutes(app: FastifyInstance, ctx: Ctx) {
         [body.name, body.email, body.mobile, hash, role.id],
       );
       if (!r) throw new Error('staff insert failed');
-      await audit(c, {
+      await audit(ctx, c, {
         actorType: 'staff',
         actorId: actor.id,
         actorName: actor.name,
@@ -200,7 +200,7 @@ export async function adminStaffRoutes(app: FastifyInstance, ctx: Ctx) {
       const parts: string[] = [];
       if (newRole) parts.push(`রোল: ${newRole.name}`);
       if (body.status) parts.push(body.status === 'active' ? 'সক্রিয় করা হয়েছে' : 'নিষ্ক্রিয় করা হয়েছে');
-      await audit(c, {
+      await audit(ctx, c, {
         actorType: 'staff',
         actorId: actor.id,
         actorName: actor.name,
@@ -237,7 +237,7 @@ export async function adminStaffRoutes(app: FastifyInstance, ctx: Ctx) {
         [id, hash],
       );
       await revokeAllSessions(c, 'staff', id, 'reset');
-      await audit(c, {
+      await audit(ctx, c, {
         actorType: 'staff',
         actorId: actor.id,
         actorName: actor.name,
@@ -266,7 +266,7 @@ export async function adminStaffRoutes(app: FastifyInstance, ctx: Ctx) {
         'INSERT INTO roles (key, name, permissions, is_system) VALUES ($1,$2,$3,false) RETURNING id, key, name, permissions, is_system',
         [`custom_${randomBytes(5).toString('hex')}`, body.name, perms],
       );
-      await audit(c, {
+      await audit(ctx, c, {
         actorType: 'staff',
         actorId: actor.id,
         actorName: actor.name,
@@ -307,7 +307,7 @@ export async function adminStaffRoutes(app: FastifyInstance, ctx: Ctx) {
         [id, body.name ?? role.name, perms],
       );
       // Staff holding this role must pick up the new permissions on their next request: sessions stay, perms are read live.
-      await audit(c, {
+      await audit(ctx, c, {
         actorType: 'staff',
         actorId: actor.id,
         actorName: actor.name,
@@ -375,7 +375,7 @@ export async function adminStaffRoutes(app: FastifyInstance, ctx: Ctx) {
         );
       }
       if (changed.length) {
-        await audit(c, {
+        await audit(ctx, c, {
           actorType: 'staff',
           actorId: actor.id,
           actorName: actor.name,

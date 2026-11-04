@@ -155,7 +155,7 @@ export async function adminContentRoutes(app: FastifyInstance, ctx: Ctx) {
         createdBy: st.id,
       });
       if (body.audience === 'selected' && n.recipientCount === 0) throw new ApiError('INVALID_INPUT', undefined, { userIds: 'প্রাপক পাওয়া যায়নি' });
-      await audit(c, {
+      await audit(ctx, c, {
         actorType: 'staff',
         actorId: st.id,
         actorName: st.name,
@@ -192,7 +192,7 @@ export async function adminContentRoutes(app: FastifyInstance, ctx: Ctx) {
       } else {
         await c.query(`INSERT INTO rules_versions (status, sections, created_by) VALUES ('draft', $1, $2)`, [JSON.stringify(body.sections), st.id]);
       }
-      await audit(c, {
+      await audit(ctx, c, {
         actorType: 'staff',
         actorId: st.id,
         actorName: st.name,
@@ -234,7 +234,7 @@ export async function adminContentRoutes(app: FastifyInstance, ctx: Ctx) {
           createdBy: st.id,
         });
       }
-      await audit(c, {
+      await audit(ctx, c, {
         actorType: 'staff',
         actorId: st.id,
         actorName: st.name,
