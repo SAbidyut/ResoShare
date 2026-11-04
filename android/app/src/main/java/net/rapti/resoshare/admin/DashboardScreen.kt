@@ -77,7 +77,7 @@ fun DashboardScreen(an: AdminNav) {
         header = {
             val c = Reso.colors
             Column(
-                Modifier.fillMaxWidth().background(c.header).headerBubble().statusBarsPadding().padding(start = 20.dp, end = 20.dp, top = 12.dp, bottom = 20.dp),
+                Modifier.fillMaxWidth().background(c.header).statusBarsPadding().headerBubble().padding(start = 20.dp, end = 20.dp, top = 12.dp, bottom = 20.dp),
                 verticalArrangement = Arrangement.spacedBy(16.dp),
             ) {
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {

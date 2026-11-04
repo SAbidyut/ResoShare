@@ -85,7 +85,7 @@ fun LoginScreen(onSignedIn: (forcedPasswordChange: Boolean) -> Unit) {
     ) {
         Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
             Column(
-                Modifier.fillMaxWidth().headerBubble().statusBarsPadding().padding(start = 28.dp, end = 28.dp, top = 16.dp, bottom = 36.dp),
+                Modifier.fillMaxWidth().statusBarsPadding().headerBubble().padding(start = 28.dp, end = 28.dp, top = 16.dp, bottom = 36.dp),
                 verticalArrangement = Arrangement.spacedBy(18.dp),
             ) {
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) { LangChips(onDark = true) }

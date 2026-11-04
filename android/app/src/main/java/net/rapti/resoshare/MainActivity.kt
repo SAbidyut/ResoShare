@@ -5,6 +5,7 @@ import android.os.Bundle
 import android.os.SystemClock
 import android.view.WindowManager
 import androidx.activity.compose.setContent
+import androidx.activity.SystemBarStyle
 import androidx.activity.enableEdgeToEdge
 import androidx.biometric.BiometricManager
 import androidx.biometric.BiometricManager.Authenticators.BIOMETRIC_WEAK
@@ -17,7 +18,10 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.statusBars
+import androidx.compose.foundation.layout.windowInsetsTopHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.navigationBarsPadding
@@ -91,7 +95,7 @@ class MainActivity : FragmentActivity() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) setRecentsScreenshotEnabled(false)
         // Tap-jacking protection: ignore touches while another window overlays ours.
         window.decorView.filterTouchesWhenObscured = true
-        enableEdgeToEdge()
+        applySystemBars(dark = false)
         ProcessLifecycleOwner.get().lifecycle.addObserver(lifecycleWatcher)
 
         val verdict = Integrity.check(this)
@@ -110,6 +114,10 @@ class MainActivity : FragmentActivity() {
                         }
                     }
                 }
+                // Every screen starts with a navy header → always light status-bar icons;
+                // navigation-bar icons follow the app theme.
+                val dark = Reso.colors.dark
+                LaunchedEffect(dark) { applySystemBars(dark) }
                 Box(Modifier.fillMaxSize().background(Reso.colors.bg)) {
                     val blocked = verdict == Integrity.Verdict.TAMPERED || verdict == Integrity.Verdict.DEBUGGER
                     if (blocked) {
@@ -121,6 +129,8 @@ class MainActivity : FragmentActivity() {
                         val locked by Session.locked.collectAsState()
                         AnimatedVisibility(locked, enter = fadeIn(), exit = fadeOut()) { LockOverlay(onUnlock = ::promptUnlock) }
                     }
+                    // Solid strip behind the status bar so scrolled content never shows through it.
+                    Box(Modifier.fillMaxWidth().windowInsetsTopHeight(WindowInsets.statusBars).background(Reso.colors.header))
                     SnackbarHost(
                         snackbar,
                         Modifier.align(Alignment.BottomCenter).navigationBarsPadding().imePadding().padding(16.dp).padding(bottom = 64.dp),
@@ -132,6 +142,14 @@ class MainActivity : FragmentActivity() {
                 }
             }
         }
+    }
+
+    private fun applySystemBars(dark: Boolean) {
+        val clear = android.graphics.Color.TRANSPARENT
+        enableEdgeToEdge(
+            statusBarStyle = SystemBarStyle.dark(clear),
+            navigationBarStyle = if (dark) SystemBarStyle.dark(clear) else SystemBarStyle.light(clear, clear),
+        )
     }
 
     override fun onUserInteraction() {

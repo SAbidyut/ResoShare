@@ -1,0 +1,5 @@
+# Baseline profile for ResoShare: pre-compile the app's own UI and data code (in addition
+# to the Compose/AndroidX library profiles) so screens open and scroll without JIT jank.
+# Installed on sideloaded APKs by androidx.profileinstaller.
+HSPLnet/rapti/resoshare/**->**(**)**
+Lnet/rapti/resoshare/**;

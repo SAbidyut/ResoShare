@@ -2,6 +2,7 @@ package net.rapti.resoshare.admin
 
 import androidx.compose.animation.AnimatedVisibility
 import net.rapti.resoshare.core.i18n.t
+import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -221,10 +222,10 @@ private fun AdminNavHost(start: String) {
                 startDestination = start,
                 modifier = Modifier.fillMaxSize().background(Reso.colors.bg),
                 // Light transitions: a short fade with a small slide keeps scrolling/transition frames cheap.
-                enterTransition = { slideInHorizontally(tween(240)) { it / 12 } + fadeIn(tween(240)) },
-                exitTransition = { fadeOut(tween(160)) },
-                popEnterTransition = { fadeIn(tween(200)) },
-                popExitTransition = { slideOutHorizontally(tween(220)) { it / 12 } + fadeOut(tween(180)) },
+                enterTransition = { slideInHorizontally(tween(200, easing = FastOutSlowInEasing)) { it / 14 } + fadeIn(tween(200)) },
+                exitTransition = { fadeOut(tween(120)) },
+                popEnterTransition = { fadeIn(tween(160)) },
+                popExitTransition = { slideOutHorizontally(tween(200, easing = FastOutSlowInEasing)) { it / 14 } + fadeOut(tween(160)) },
             ) { graph(an) }
         }
         AnimatedVisibility(showBar, enter = slideInVertically { it } + fadeIn(), exit = slideOutVertically { it } + fadeOut()) {
@@ -246,10 +247,10 @@ private fun AdminNavHost(start: String) {
 private fun NavGraphBuilder.tab(route: String, content: @Composable () -> Unit) =
     composable(
         route,
-        enterTransition = { fadeIn(tween(220)) },
-        exitTransition = { fadeOut(tween(160)) },
-        popEnterTransition = { fadeIn(tween(220)) },
-        popExitTransition = { fadeOut(tween(160)) },
+        enterTransition = { fadeIn(tween(120)) },
+        exitTransition = { fadeOut(tween(90)) },
+        popEnterTransition = { fadeIn(tween(120)) },
+        popExitTransition = { fadeOut(tween(90)) },
     ) { content() }
 
 private fun NavGraphBuilder.graph(an: AdminNav) {

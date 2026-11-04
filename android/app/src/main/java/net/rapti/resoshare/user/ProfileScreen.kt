@@ -127,7 +127,7 @@ private fun ProfileContent(nav: NavHostController, d: Dashboard) {
     LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 28.dp)) {
         item(key = "header") {
             Column(
-                Modifier.fillMaxWidth().background(c.header).headerBubble().statusBarsPadding()
+                Modifier.fillMaxWidth().background(c.header).statusBarsPadding().headerBubble()
                     .padding(start = 20.dp, end = 20.dp, top = 20.dp, bottom = 18.dp),
                 verticalArrangement = Arrangement.spacedBy(18.dp),
             ) {

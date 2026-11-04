@@ -170,10 +170,17 @@ object Exporter {
         // Logo
         val lp = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = navy }
         cv.drawRoundRect(RectF(150f, 90f, 196f, 136f), 12f, 12f, lp)
+        // Same wave as the in-app logo (40-unit box scaled to the 46pt badge).
+        val k = 46f / 40f
+        fun wx(v: Float) = 150f + v * k
+        fun wy(v: Float) = 90f + v * k
         val wave = android.graphics.Path().apply {
-            moveTo(157f, 114f); cubicTo(160.5f, 99f, 166.5f, 99f, 170f, 114f); cubicTo(173.5f, 129f, 178f, 129f, 181.5f, 114f); cubicTo(185f, 99f, 186f, 104f, 189.5f, 111f)
+            moveTo(wx(8f), wy(20f))
+            cubicTo(wx(10.88f), wy(13.35f), wx(13.12f), wy(13.35f), wx(16f), wy(20f))
+            cubicTo(wx(18.88f), wy(26.65f), wx(21.12f), wy(26.65f), wx(24f), wy(20f))
+            cubicTo(wx(26.88f), wy(13.35f), wx(29.12f), wy(13.35f), wx(32f), wy(20f))
         }
-        cv.drawPath(wave, Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.STROKE; strokeWidth = 3.4f; color = amber; strokeCap = Paint.Cap.ROUND })
+        cv.drawPath(wave, Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.STROKE; strokeWidth = 3.6f * k; color = amber; strokeCap = Paint.Cap.ROUND })
         cv.text(c.companyName, paint(ctx, 22f, navy, true), 206f, 97f, 300)
         val center = Layout.Alignment.ALIGN_CENTER
         cv.text(t("শেয়ার সার্টিফিকেট", "Share Certificate"), paint(ctx, 34f, navy, true), 60f, 170f, w - 120, center)

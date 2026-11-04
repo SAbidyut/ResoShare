@@ -61,7 +61,7 @@ fun MoreScreen(an: AdminNav) {
 
     AdminScreen(header = {
         Column(
-            Modifier.fillMaxWidth().background(c.header).headerBubble().statusBarsPadding().padding(start = 20.dp, end = 20.dp, top = 16.dp, bottom = 22.dp),
+            Modifier.fillMaxWidth().background(c.header).statusBarsPadding().headerBubble().padding(start = 20.dp, end = 20.dp, top = 16.dp, bottom = 22.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
             T(t("আরও", "More"), 22.sp, FontWeight.Bold, Color.White)

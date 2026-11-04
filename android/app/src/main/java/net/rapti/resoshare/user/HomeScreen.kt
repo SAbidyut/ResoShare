@@ -129,7 +129,7 @@ private fun HomeContent(nav: NavHostController, d: Dashboard) {
     LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 28.dp)) {
         item(key = "header", contentType = "header") {
             Column(
-                Modifier.fillMaxWidth().background(c.header).headerBubble().statusBarsPadding()
+                Modifier.fillMaxWidth().background(c.header).statusBarsPadding().headerBubble()
                     .padding(start = 20.dp, end = 20.dp, top = 16.dp, bottom = 18.dp),
                 verticalArrangement = Arrangement.spacedBy(14.dp),
             ) {
@@ -160,44 +160,49 @@ private fun HomeContent(nav: NavHostController, d: Dashboard) {
                     .padding(horizontal = 20.dp),
             ) { RateCard(d, week, nav) }
         }
-        item(key = "body", contentType = "body") {
-            Column(Modifier.padding(start = 20.dp, end = 20.dp, top = 14.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
-                KycBanner(nav, d)
-                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                    GradientCard(c.shares, Modifier.weight(1f)) {
-                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            IconDisc(ResoIcons.Layers, c.ink, c.onInk)
-                            T(t("আমার মোট শেয়ার", "My shares"), 14.sp, FontWeight.Bold, c.shares.label, maxLines = 2)
-                        }
-                        Spacer(Modifier.height(8.dp))
-                        Row(verticalAlignment = Alignment.Bottom) {
-                            T(if (hide) "••" else Bn.num(d.holding.shares), 30.sp, FontWeight.Bold, c.shares.value, lineHeight = 36.sp)
-                            T(t(" টি", ""), 16.sp, color = c.shares.value, modifier = Modifier.padding(bottom = 4.dp))
-                        }
+        // Separate lazy items: only what is on screen gets composed, the rest is
+        // prefetched while scrolling (one giant item made the first frame heavy).
+        val pad = Modifier.padding(start = 20.dp, end = 20.dp, top = 14.dp)
+        if (d.me.accountStatus == "suspended" || d.me.kycStatus != "verified") {
+            item(key = "kyc", contentType = "banner") { Box(pad) { KycBanner(nav, d) } }
+        }
+        item(key = "totals", contentType = "totals") {
+            Row(pad, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                GradientCard(c.shares, Modifier.weight(1f)) {
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        IconDisc(ResoIcons.Layers, c.ink, c.onInk)
+                        T(t("আমার মোট শেয়ার", "My shares"), 14.sp, FontWeight.Bold, c.shares.label, maxLines = 2)
                     }
-                    GradientCard(c.paid, Modifier.weight(1f)) {
-                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            IconDisc(ResoIcons.Wallet, c.green, Color.White)
-                            T(t("মোট পরিশোধ", "Total paid"), 14.sp, FontWeight.Bold, c.paid.label, maxLines = 2)
-                        }
-                        Spacer(Modifier.height(8.dp))
-                        T(money(d.holding.paidPaisa, hide), 19.sp, FontWeight.Bold, c.paid.value, maxLines = 1, lineHeight = 36.sp)
+                    Spacer(Modifier.height(8.dp))
+                    Row(verticalAlignment = Alignment.Bottom) {
+                        T(if (hide) "••" else Bn.num(d.holding.shares), 30.sp, FontWeight.Bold, c.shares.value, lineHeight = 36.sp)
+                        T(t(" টি", ""), 16.sp, color = c.shares.value, modifier = Modifier.padding(bottom = 4.dp))
                     }
                 }
-                SellCard(d, hide) { nav.tab(Routes.PROFILE) }
-                Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                    QuickAction(t("শেয়ার কিনুন", "Buy"), ResoIcons.Plus, Brand.Navy, Color.White.copy(alpha = 0.45f), primary = true, Modifier.weight(1f)) {
-                        nav.navigate(Routes.BUY) { launchSingleTop = true }
+                GradientCard(c.paid, Modifier.weight(1f)) {
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        IconDisc(ResoIcons.Wallet, c.green, Color.White)
+                        T(t("মোট পরিশোধ", "Total paid"), 14.sp, FontWeight.Bold, c.paid.label, maxLines = 2)
                     }
-                    QuickAction(t("রেট চার্ট", "Rate chart"), ResoIcons.Chart, c.ink, c.infoBg, false, Modifier.weight(1f)) { nav.tab(Routes.CHART) }
-                    QuickAction(t("সার্টিফিকেট", "Certificate"), ResoIcons.Award, c.green, c.successBg, false, Modifier.weight(1f)) { nav.navigate(Routes.CERTIFICATE) }
-                    QuickAction(t("নিয়ম-কানুন", "Rules"), ResoIcons.Shield, c.brown, c.warnBg, false, Modifier.weight(1f)) { nav.navigate(Routes.RULES) }
+                    Spacer(Modifier.height(8.dp))
+                    T(money(d.holding.paidPaisa, hide), 19.sp, FontWeight.Bold, c.paid.value, maxLines = 1, lineHeight = 36.sp)
                 }
-                GoalCard(d.holding.shares, hide)
-                NoticeBoard(notices, onAll = { nav.tab(Routes.NOTICES) })
-                RecentOrders(orders ?: d.recentOrders, hide) { nav.navigate(Routes.ORDERS) }
             }
         }
+        item(key = "sell", contentType = "sell") { Box(pad) { SellCard(d, hide) { nav.tab(Routes.PROFILE) } } }
+        item(key = "actions", contentType = "actions") {
+            Row(pad, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                QuickAction(t("শেয়ার কিনুন", "Buy"), ResoIcons.Plus, Brand.Navy, Color.White.copy(alpha = 0.45f), primary = true, Modifier.weight(1f)) {
+                    nav.navigate(Routes.BUY) { launchSingleTop = true }
+                }
+                QuickAction(t("রেট চার্ট", "Rate chart"), ResoIcons.Chart, c.ink, c.infoBg, false, Modifier.weight(1f)) { nav.tab(Routes.CHART) }
+                QuickAction(t("সার্টিফিকেট", "Certificate"), ResoIcons.Award, c.green, c.successBg, false, Modifier.weight(1f)) { nav.navigate(Routes.CERTIFICATE) }
+                QuickAction(t("নিয়ম-কানুন", "Rules"), ResoIcons.Shield, c.brown, c.warnBg, false, Modifier.weight(1f)) { nav.navigate(Routes.RULES) }
+            }
+        }
+        item(key = "goal", contentType = "goal") { Box(pad) { GoalCard(d.holding.shares, hide) } }
+        item(key = "notices", contentType = "notices") { Box(pad) { NoticeBoard(notices, onAll = { nav.tab(Routes.NOTICES) }) } }
+        item(key = "orders", contentType = "orders") { Box(pad) { RecentOrders(orders ?: d.recentOrders, hide) { nav.navigate(Routes.ORDERS) } } }
     }
 }
 

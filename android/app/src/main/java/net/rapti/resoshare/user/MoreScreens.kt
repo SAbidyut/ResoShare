@@ -256,7 +256,7 @@ fun NoticesScreen(nav: NavHostController) {
     val filters = listOf(t("সব", "All"), t("রেট", "Rate"), t("পেমেন্ট", "Payment"), t("কোম্পানি", "Company"))
     Column(Modifier.fillMaxSize()) {
         Column(
-            Modifier.fillMaxWidth().background(c.header).headerBubble().statusBarsPadding().padding(start = 20.dp, end = 20.dp, top = 12.dp, bottom = 16.dp),
+            Modifier.fillMaxWidth().background(c.header).statusBarsPadding().headerBubble().padding(start = 20.dp, end = 20.dp, top = 12.dp, bottom = 16.dp),
             verticalArrangement = Arrangement.spacedBy(14.dp),
         ) {
             Row(verticalAlignment = Alignment.CenterVertically) {

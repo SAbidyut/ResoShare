@@ -136,7 +136,7 @@ fun LoginScreen(nav: NavHostController) {
 
     Column(Modifier.fillMaxSize().background(c.surface).imePadding().verticalScroll(rememberScrollState())) {
         Column(
-            Modifier.fillMaxWidth().background(c.header).headerBubble().statusBarsPadding()
+            Modifier.fillMaxWidth().background(c.header).statusBarsPadding().headerBubble()
                 .padding(start = 28.dp, end = 28.dp, top = 12.dp, bottom = 52.dp),
             verticalArrangement = Arrangement.spacedBy(22.dp),
         ) {

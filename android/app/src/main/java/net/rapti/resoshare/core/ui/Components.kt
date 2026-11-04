@@ -73,7 +73,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
-import androidx.compose.ui.draw.scale
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
@@ -135,9 +135,11 @@ fun T(
 fun Modifier.pressable(enabled: Boolean = true, onClick: () -> Unit, role: Role = Role.Button): Modifier {
     val source = remember { MutableInteractionSource() }
     val pressed by source.collectIsPressedAsState()
-    val s by animateFloatAsState(if (pressed && enabled) 0.97f else 1f, spring(stiffness = Spring.StiffnessMediumLow), label = "press")
+    val s by animateFloatAsState(if (pressed && enabled) 0.97f else 1f, spring(stiffness = Spring.StiffnessMedium), label = "press")
     return this
-        .scale(s)
+        // Read the animated value in the layer block: the press animation only re-draws,
+        // it never recomposes or re-measures the card (keeps scrolling smooth).
+        .graphicsLayer { scaleX = s; scaleY = s }
         .clickable(interactionSource = source, indication = androidx.compose.material3.ripple(), enabled = enabled, role = role, onClick = onClick)
 }
 
@@ -156,8 +158,8 @@ fun ScreenHeader(
         Modifier
             .fillMaxWidth()
             .background(c.header)
-            .headerBubble()
             .statusBarsPadding()
+            .headerBubble()
             .padding(start = 20.dp, end = 20.dp, top = 12.dp, bottom = 20.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
@@ -1014,15 +1016,22 @@ private fun BarItem(item: NavItem, sel: Boolean, adminStyle: Boolean, modifier: 
 fun BrandLogo(size: Dp = 44.dp) {
     androidx.compose.foundation.Canvas(Modifier.size(size)) {
         val s = this.size.width / 40f
-        drawRoundRect(Brand.Amber, cornerRadius = androidx.compose.ui.geometry.CornerRadius(11f * s, 11f * s))
-        val p = androidx.compose.ui.graphics.Path().apply {
-            moveTo(6f * s, 21f * s)
-            cubicTo(9f * s, 8f * s, 14f * s, 8f * s, 17f * s, 21f * s)
-            cubicTo(20f * s, 34f * s, 24f * s, 34f * s, 27f * s, 21f * s)
-            cubicTo(30f * s, 8f * s, 31f * s, 12f * s, 34f * s, 19f * s)
-        }
-        drawPath(p, Brand.Navy, style = androidx.compose.ui.graphics.drawscope.Stroke(width = 3f * s, cap = androidx.compose.ui.graphics.StrokeCap.Round))
+        drawRoundRect(
+            Brush.linearGradient(listOf(Color(0xFFFFC24D), Brand.Amber), end = androidx.compose.ui.geometry.Offset(this.size.width, this.size.height)),
+            cornerRadius = androidx.compose.ui.geometry.CornerRadius(11f * s, 11f * s),
+        )
+        drawPath(brandWave(s, 0f, 0f), Brand.Navy, style = androidx.compose.ui.graphics.drawscope.Stroke(width = 3.6f * s, cap = androidx.compose.ui.graphics.StrokeCap.Round))
     }
+}
+
+/** The Resonance wave in a 40×40 box (1.5 smooth periods), scaled by [s] and offset by [dx]/[dy]. */
+fun brandWave(s: Float, dx: Float, dy: Float) = androidx.compose.ui.graphics.Path().apply {
+    fun x(v: Float) = dx + v * s
+    fun y(v: Float) = dy + v * s
+    moveTo(x(8f), y(20f))
+    cubicTo(x(10.88f), y(13.35f), x(13.12f), y(13.35f), x(16f), y(20f))
+    cubicTo(x(18.88f), y(26.65f), x(21.12f), y(26.65f), x(24f), y(20f))
+    cubicTo(x(26.88f), y(13.35f), x(29.12f), y(13.35f), x(32f), y(20f))
 }
 
 @Composable

@@ -2,6 +2,7 @@ package net.rapti.resoshare.user
 
 import androidx.compose.animation.AnimatedContentTransitionScope
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -82,7 +83,7 @@ fun NavHostController.toLoggedIn(mustChangePassword: Boolean) {
     }
 }
 
-private const val ANIM = 240
+private const val ANIM = 200
 
 private fun AnimatedContentTransitionScope<NavBackStackEntry>.isTabSwitch() =
     initialState.destination.route in Routes.TABS && targetState.destination.route in Routes.TABS
@@ -116,12 +117,12 @@ fun UserApp() {
             modifier = Modifier.weight(1f),
             // Light, short transitions keep navigation smooth on low-end phones.
             enterTransition = {
-                if (isTabSwitch()) fadeIn(tween(180))
-                else slideInHorizontally(tween(ANIM)) { it / 10 } + fadeIn(tween(ANIM))
+                if (isTabSwitch()) fadeIn(tween(120))
+                else slideInHorizontally(tween(ANIM, easing = FastOutSlowInEasing)) { it / 14 } + fadeIn(tween(ANIM))
             },
-            exitTransition = { fadeOut(tween(140)) },
-            popEnterTransition = { fadeIn(tween(ANIM)) },
-            popExitTransition = { slideOutHorizontally(tween(ANIM)) { it / 10 } + fadeOut(tween(ANIM)) },
+            exitTransition = { fadeOut(tween(if (isTabSwitch()) 90 else 120)) },
+            popEnterTransition = { fadeIn(tween(160)) },
+            popExitTransition = { slideOutHorizontally(tween(ANIM, easing = FastOutSlowInEasing)) { it / 14 } + fadeOut(tween(160)) },
         ) {
             composable(Routes.SPLASH) { Splash(nav) }
             composable(Routes.LOGIN) { LoginScreen(nav) }
