@@ -80,6 +80,7 @@ interface AdminApi {
 
     @GET("api/v1/admin/shareholders/{id}") suspend fun shareholder(@Path("id") id: String): ShareholderDetail
     @GET("api/v1/admin/shareholders/{id}/contact") suspend fun contact(@Path("id") id: String): Contact
+    @GET("api/v1/admin/shareholders/{id}/certificate") suspend fun shareholderCertificate(@Path("id") id: String): Certificate
     @POST("api/v1/admin/shareholders/{id}/suspend") suspend fun suspend(@Path("id") id: String, @Body body: Reason)
     @POST("api/v1/admin/shareholders/{id}/activate") suspend fun activate(@Path("id") id: String)
     @POST("api/v1/admin/shareholders/{id}/reset-password") suspend fun resetUserPassword(@Path("id") id: String): TempPassword
@@ -128,6 +129,8 @@ interface AdminApi {
     @PATCH("api/v1/admin/roles/{id}") suspend fun patchRole(@Path("id") id: String, @Body body: RolePatch): Role
 
     @GET("api/v1/admin/audit") suspend fun audit(@Query("category") category: String? = null, @Query("cursor") cursor: String? = null): AuditPage
+    @GET("api/v1/admin/backup") suspend fun backup(): BackupStatus
+    @POST("api/v1/admin/backup") suspend fun requestBackup(): BackupStatus
     @GET("api/v1/admin/settings") suspend fun settings(): Settings
     @PUT("api/v1/admin/settings") suspend fun saveSettings(@Body body: Settings): Settings
 }

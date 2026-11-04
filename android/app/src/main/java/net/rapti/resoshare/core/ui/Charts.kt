@@ -40,6 +40,7 @@ import com.google.zxing.common.BitMatrix
 import com.google.zxing.qrcode.QRCodeWriter
 import com.google.zxing.qrcode.decoder.ErrorCorrectionLevel
 import net.rapti.resoshare.core.format.Bn
+import net.rapti.resoshare.core.i18n.t
 import net.rapti.resoshare.core.ui.theme.Brand
 import net.rapti.resoshare.core.ui.theme.Reso
 
@@ -56,7 +57,7 @@ fun PriceLineChart(values: List<Long>, labels: List<String>, modifier: Modifier 
     val lo = min - span / 8
     val hi = max + span / 8
     val mid = (lo + hi) / 2
-    Column(modifier.fillMaxWidth().semantics { contentDescription = "শেয়ারের মূল্যের চার্ট" }) {
+    Column(modifier.fillMaxWidth().semantics { contentDescription = t("শেয়ারের মূল্যের চার্ট", "Share price chart") }) {
         Row(Modifier.fillMaxWidth().height(height)) {
             Column(Modifier.width(64.dp).height(height), verticalArrangement = Arrangement.SpaceBetween) {
                 T(Bn.moneyPlain(hi), 10.sp, color = c.muted, maxLines = 1)
@@ -129,7 +130,7 @@ fun ChangeBars(diffs: List<Long>, modifier: Modifier = Modifier, height: Dp = 12
     val progress = remember(diffs) { Animatable(0f) }
     LaunchedEffect(diffs) { progress.animateTo(1f, tween(800, easing = FastOutSlowInEasing)) }
     val maxAbs = (diffs.maxOfOrNull { kotlin.math.abs(it) } ?: 0L).coerceAtLeast(1L)
-    Canvas(modifier.fillMaxWidth().height(height).semantics { contentDescription = "বৃদ্ধি ও হ্রাসের চার্ট" }) {
+    Canvas(modifier.fillMaxWidth().height(height).semantics { contentDescription = t("বৃদ্ধি ও হ্রাসের চার্ট", "Rise and fall chart") }) {
         val w = size.width; val h = size.height; val base = h * 0.55f
         drawLine(c.chartGrid, Offset(0f, base), Offset(w, base), 1.dp.toPx())
         if (diffs.isEmpty()) return@Canvas
@@ -158,7 +159,7 @@ fun SalesBars(values: List<Long>, labels: List<String>, modifier: Modifier = Mod
     val maxV = (values.maxOrNull() ?: 0L).coerceAtLeast(1L)
     val barColor = if (c.dark) Color(0xFF5E77A6) else Color(0xFF7489B0)
     Column(modifier.fillMaxWidth()) {
-        Canvas(Modifier.fillMaxWidth().height(height).semantics { contentDescription = "বিক্রির চার্ট" }) {
+        Canvas(Modifier.fillMaxWidth().height(height).semantics { contentDescription = t("বিক্রির চার্ট", "Sales chart") }) {
             val w = size.width; val h = size.height
             if (values.isEmpty()) return@Canvas
             val slot = w / values.size
@@ -202,7 +203,7 @@ fun qrMatrix(text: String, size: Int = 29): BitMatrix =
 @Composable
 fun QrCode(text: String, modifier: Modifier = Modifier, color: Color = Color(0xFF0B1D3A)) {
     val m = remember(text) { qrMatrix(text, 0) }
-    Canvas(modifier.semantics { contentDescription = "যাচাইয়ের QR কোড" }) {
+    Canvas(modifier.semantics { contentDescription = t("যাচাইয়ের QR কোড", "Verification QR code") }) {
         val cell = size.width / m.width
         drawRect(Color.White)
         for (y in 0 until m.height) for (x in 0 until m.width) {

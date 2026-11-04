@@ -53,6 +53,7 @@ import androidx.lifecycle.ProcessLifecycleOwner
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.merge
 import kotlinx.coroutines.launch
+import net.rapti.resoshare.core.i18n.t
 import net.rapti.resoshare.core.security.Integrity
 import net.rapti.resoshare.core.session.Session
 import net.rapti.resoshare.core.ui.BrandLogo
@@ -64,8 +65,6 @@ import net.rapti.resoshare.core.ui.T
 import net.rapti.resoshare.core.ui.theme.Brand
 import net.rapti.resoshare.core.ui.theme.Reso
 import net.rapti.resoshare.core.ui.theme.ResoTheme
-import net.rapti.resoshare.role.RoleRoot
-import net.rapti.resoshare.role.RoleSpec
 
 class MainActivity : FragmentActivity() {
 
@@ -79,7 +78,7 @@ class MainActivity : FragmentActivity() {
             if (Session.isActive && Graph.prefs.appLock && canUseDeviceAuth() && away > LOCK_AFTER_MS) Session.lock()
             // Being away longer than the idle timeout ends the session as well.
             if (Session.isActive && away > Session.idleTimeoutMs) {
-                Auth.logoutAsync("নিষ্ক্রিয় থাকায় নিরাপত্তার জন্য লগআউট করা হয়েছে।")
+                Auth.logoutAsync(t("নিষ্ক্রিয় থাকায় নিরাপত্তার জন্য লগআউট করা হয়েছে।", "Logged out after inactivity, for your security."))
             }
         }
     }
@@ -94,7 +93,6 @@ class MainActivity : FragmentActivity() {
         window.decorView.filterTouchesWhenObscured = true
         enableEdgeToEdge()
         ProcessLifecycleOwner.get().lifecycle.addObserver(lifecycleWatcher)
-        Session.idleTimeoutMs = RoleSpec.defaultIdleTimeoutMs
 
         val verdict = Integrity.check(this)
 
@@ -108,17 +106,16 @@ class MainActivity : FragmentActivity() {
                     while (true) {
                         delay(10_000)
                         if (Session.isActive && Session.idleFor() > Session.idleTimeoutMs) {
-                            Auth.logout("নিষ্ক্রিয় থাকায় নিরাপত্তার জন্য লগআউট করা হয়েছে।")
+                            Auth.logout(t("নিষ্ক্রিয় থাকায় নিরাপত্তার জন্য লগআউট করা হয়েছে।", "Logged out after inactivity, for your security."))
                         }
                     }
                 }
                 Box(Modifier.fillMaxSize().background(Reso.colors.bg)) {
-                    val blocked = verdict == Integrity.Verdict.TAMPERED || verdict == Integrity.Verdict.DEBUGGER ||
-                        (verdict == Integrity.Verdict.ROOTED && RoleSpec.blockRootedDevices)
+                    val blocked = verdict == Integrity.Verdict.TAMPERED || verdict == Integrity.Verdict.DEBUGGER
                     if (blocked) {
                         BlockedScreen(verdict)
                     } else {
-                        RoleRoot()
+                        AppRoot(verdict)
                         var showRootWarning by remember { mutableStateOf(verdict == Integrity.Verdict.ROOTED && !Graph.prefs.rootWarned) }
                         if (showRootWarning) RootWarning { Graph.prefs.rootWarned = true; showRootWarning = false }
                         val locked by Session.locked.collectAsState()
@@ -157,8 +154,8 @@ class MainActivity : FragmentActivity() {
         })
         prompt.authenticate(
             BiometricPrompt.PromptInfo.Builder()
-                .setTitle("অ্যাপ আনলক করুন")
-                .setSubtitle("ফিঙ্গারপ্রিন্ট, ফেস বা ফোনের পিন/প্যাটার্ন দিন")
+                .setTitle(t("অ্যাপ আনলক করুন", "Unlock the app"))
+                .setSubtitle(t("ফিঙ্গারপ্রিন্ট, ফেস বা ফোনের পিন/প্যাটার্ন দিন", "Use fingerprint, face or your phone PIN/pattern"))
                 .setAllowedAuthenticators(BIOMETRIC_WEAK or DEVICE_CREDENTIAL)
                 .build(),
         )
@@ -177,19 +174,19 @@ private fun LockOverlay(onUnlock: () -> Unit) {
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
         BrandLogo(64.dp)
-        T("অ্যাপ লক করা আছে", 24.sp, FontWeight.Bold, Color.White)
-        T("আপনার তথ্য সুরক্ষিত রাখতে আবার পরিচয় নিশ্চিত করুন।", 15.sp, color = Brand.HeaderMuted, align = TextAlign.Center)
-        PrimaryButton("আনলক করুন", onUnlock, Modifier.widthIn(max = 320.dp), icon = ResoIcons.Fingerprint)
-        SecondaryButton("লগআউট", { scope.launch { Auth.logout(null) } }, Modifier.widthIn(max = 320.dp), color = Color.White)
+        T(t("অ্যাপ লক করা আছে", "App is locked"), 24.sp, FontWeight.Bold, Color.White)
+        T(t("আপনার তথ্য সুরক্ষিত রাখতে আবার পরিচয় নিশ্চিত করুন।", "Confirm it's you to keep your information safe."), 15.sp, color = Brand.HeaderMuted, align = TextAlign.Center)
+        PrimaryButton(t("আনলক করুন", "Unlock"), onUnlock, Modifier.widthIn(max = 320.dp), icon = ResoIcons.Fingerprint)
+        SecondaryButton(t("লগআউট", "Log out"), { scope.launch { Auth.logout(null) } }, Modifier.widthIn(max = 320.dp), color = Color.White)
     }
 }
 
 @Composable
 private fun BlockedScreen(verdict: Integrity.Verdict) {
     val (title, body) = when (verdict) {
-        Integrity.Verdict.TAMPERED -> "অ্যাপটি পরিবর্তিত" to "এই অ্যাপটি আসল নয় বা পরিবর্তন করা হয়েছে। নিরাপত্তার জন্য এটি চালু হবে না। কোম্পানির দেওয়া আসল অ্যাপটি ইনস্টল করুন।"
-        Integrity.Verdict.DEBUGGER -> "অনিরাপদ পরিবেশ" to "ডিবাগার সংযুক্ত থাকায় অ্যাপটি চালু করা যাচ্ছে না।"
-        else -> "রুট করা ডিভাইস" to "নিরাপত্তার কারণে অ্যাডমিন অ্যাপ রুট করা ডিভাইসে চলে না। অন্য একটি নিরাপদ ফোন ব্যবহার করুন।"
+        Integrity.Verdict.TAMPERED -> t("অ্যাপটি পরিবর্তিত", "App modified") to t("এই অ্যাপটি আসল নয় বা পরিবর্তন করা হয়েছে। নিরাপত্তার জন্য এটি চালু হবে না। কোম্পানির দেওয়া আসল অ্যাপটি ইনস্টল করুন।", "This app is not genuine or has been modified, so it will not run. Install the original app from the company.")
+        Integrity.Verdict.DEBUGGER -> t("অনিরাপদ পরিবেশ", "Unsafe environment") to t("ডিবাগার সংযুক্ত থাকায় অ্যাপটি চালু করা যাচ্ছে না।", "The app cannot run while a debugger is attached.")
+        else -> t("অনিরাপদ ডিভাইস", "Unsafe device") to t("এই ডিভাইসে অ্যাপটি চালানো নিরাপদ নয়।", "It is not safe to run the app on this device.")
     }
     Column(
         Modifier.fillMaxSize().background(Brand.Navy).padding(32.dp),
@@ -209,8 +206,8 @@ private fun RootWarning(onDismiss: () -> Unit) {
         onDismissRequest = {},
         containerColor = c.surface,
         icon = { IconDisc(ResoIcons.Shield, c.warnBg, c.brown, 48.dp, 24.dp) },
-        title = { T("নিরাপত্তা সতর্কতা", 19.sp, FontWeight.Bold) },
-        text = { T("আপনার ফোনটি রুট করা মনে হচ্ছে। এতে অন্য অ্যাপ আপনার তথ্য চুরি করতে পারে। সম্ভব হলে রুট ছাড়া ফোনে অ্যাপটি ব্যবহার করুন।", 15.sp, color = c.textSoft) },
-        confirmButton = { TextButton(onClick = onDismiss) { T("বুঝেছি", 16.sp, FontWeight.Bold, c.ink) } },
+        title = { T(t("নিরাপত্তা সতর্কতা", "Security warning"), 19.sp, FontWeight.Bold) },
+        text = { T(t("আপনার ফোনটি রুট করা মনে হচ্ছে। এতে অন্য অ্যাপ আপনার তথ্য চুরি করতে পারে। সম্ভব হলে রুট ছাড়া ফোনে অ্যাপটি ব্যবহার করুন। (অ্যাডমিন প্যানেল রুট করা ফোনে চলবে না।)", "Your phone appears to be rooted, which lets other apps steal your data. Use an unrooted phone if possible. (The admin panel will not run on rooted phones.)"), 15.sp, color = c.textSoft) },
+        confirmButton = { TextButton(onClick = onDismiss) { T(t("বুঝেছি", "I understand"), 16.sp, FontWeight.Bold, c.ink) } },
     )
 }

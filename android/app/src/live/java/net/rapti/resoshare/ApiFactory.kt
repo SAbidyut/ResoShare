@@ -53,7 +53,7 @@ object ApiFactory {
             require(req.url.host == baseUrl.host && req.url.isHttps) { "Blocked request to unexpected host" }
             chain.proceed(
                 req.newBuilder()
-                    .header("User-Agent", "ResoShare/${BuildConfig.VERSION_NAME} (Android; ${if (BuildConfig.IS_ADMIN) "admin" else "user"})")
+                    .header("User-Agent", "ResoShare/${BuildConfig.VERSION_NAME} (Android)")
                     .header("Accept", "application/json")
                     .header("Accept-Language", "bn")
                     .build(),
@@ -101,7 +101,7 @@ object ApiFactory {
                     return response.request.newBuilder().header("Authorization", "Bearer $current").header("X-Retry-Auth", "1").build()
                 }
                 val refresh = tokens.refreshToken ?: return null
-                val path = if (BuildConfig.IS_ADMIN) "api/v1/admin/auth/refresh" else "api/v1/auth/refresh"
+                val path = if (tokens.role == "admin") "api/v1/admin/auth/refresh" else "api/v1/auth/refresh"
                 val payload = AppJson.encodeToString(
                     net.rapti.resoshare.data.api.RefreshRequest.serializer(),
                     net.rapti.resoshare.data.api.RefreshRequest(refresh),

@@ -9,6 +9,7 @@ import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
+import net.rapti.resoshare.core.i18n.AppLang
 import net.rapti.resoshare.core.ui.theme.ThemeMode
 import java.security.KeyStore
 import java.util.UUID
@@ -99,6 +100,25 @@ class Prefs(context: Context) {
         get() = p.getString("last_id", null)
         set(v) = p.edit().putString("last_id", v).apply()
 
+    var lang: AppLang
+        get() = if (p.getString("lang", "bn") == "en") AppLang.EN else AppLang.BN
+        set(v) = p.edit().putString("lang", v.code).apply()
+
+    /** Last used portal ("user" / "admin") so the right login screen opens. */
+    var portal: String
+        get() = if (p.getString("portal", "user") == "admin") "admin" else "user"
+        set(v) = p.edit().putString("portal", v).apply()
+
+    /** Shareholder's personal share goal (home "আমার লক্ষ্য" card). */
+    var goalShares: Int
+        get() = p.getInt("goal_shares", 100)
+        set(v) = p.edit().putInt("goal_shares", v).apply()
+
+    /** Hide money amounts on home/profile (privacy eye toggle). */
+    var hideAmounts: Boolean
+        get() = p.getBoolean("hide_amounts", false)
+        set(v) = p.edit().putBoolean("hide_amounts", v).apply()
+
     var rootWarned: Boolean
         get() = p.getBoolean("root_warned", false)
         set(v) = p.edit().putBoolean("root_warned", v).apply()
@@ -114,17 +134,28 @@ class TokenStore(private val store: SecureStore) {
 
     val refreshToken: String? get() = store.get(REFRESH)
 
+    /** Portal the stored session belongs to ("user" / "admin"); decides the refresh endpoint. */
+    val role: String? get() = store.get(ROLE)
+
+    /** Portal currently shown; new sessions are tagged with it. */
+    @Volatile var currentPortal: String = "user"
+
     fun set(access: String, refresh: String) {
         accessToken = access
         store.put(REFRESH, refresh)
+        store.put(ROLE, currentPortal)
     }
 
     fun clear() {
         accessToken = null
         store.put(REFRESH, null)
+        store.put(ROLE, null)
     }
 
-    private companion object { const val REFRESH = "refresh_token" }
+    private companion object {
+        const val REFRESH = "refresh_token"
+        const val ROLE = "refresh_role"
+    }
 }
 
 /** Global session state: emits when the session is lost so the UI can return to login. */

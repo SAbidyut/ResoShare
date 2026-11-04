@@ -71,7 +71,10 @@ class DemoShareholderApi : ShareholderApi {
 
     private fun tokens() = Tokens("demo-access-" + s.uuid(), "demo-refresh-" + s.uuid(), 900)
 
-    override suspend fun publicInfo() = op { PublicInfo(s.settings.company.name, s.settings.company.hotline, s.settings.company.email, s.settings.payment.officeAddress) }
+    override suspend fun publicInfo() = op {
+        PublicInfo(s.settings.company.name, s.settings.company.hotline, s.settings.company.email, s.settings.payment.officeAddress,
+            s.todayRate(), s.todayRate() - s.rateOn(s.today().minusDays(1)))
+    }
 
     override suspend fun rules(): Rules = op {
         val r = s.rulesCurrent ?: throw ApiException("NOT_FOUND", "নিয়ম এখনো প্রকাশ হয়নি", 404)
@@ -109,34 +112,7 @@ class DemoShareholderApi : ShareholderApi {
             )
             s.users += u
             s.log(u.name, "shareholder", "নতুন রেজিস্ট্রেশন: ${u.name} (${u.shareholderNo})", "info")
-            scheduleAutoKyc(u.id)
             RegisterResult(u.shareholderNo)
-        }
-    }
-
-    /** Demo convenience: a new account's KYC is "approved" automatically after a short wait. */
-    private fun scheduleAutoKyc(userId: String) = bg.launch {
-        delay(20_000)
-        lock.withLock {
-            val u = s.users.firstOrNull { it.id == userId } ?: return@withLock
-            if (u.kycStatus == "pending") {
-                u.kycStatus = "verified"
-                s.notify("KYC যাচাই সম্পন্ন", "আপনার পরিচয় যাচাই হয়েছে। এখন শেয়ার কিনতে পারবেন। (ডেমো: স্বয়ংক্রিয় অনুমোদন)", "kyc", "user", setOf(u.id))
-            }
-        }
-    }
-
-    private fun scheduleAutoConfirm(orderId: String) = bg.launch {
-        delay(25_000)
-        lock.withLock {
-            val o = s.orders.firstOrNull { it.id == orderId } ?: return@withLock
-            if (o.status == "pending" && s.pool().remainingShares >= o.qty) {
-                o.status = "confirmed"; o.decidedAt = s.now()
-                s.notify(
-                    if (o.method == "cash") "আপনার ক্যাশ জমা যাচাই হয়েছে" else "আপনার ব্যাংক ট্রান্সফার যাচাই হয়েছে",
-                    "${Bn.num(o.qty)}টি শেয়ার আপনার প্রোফাইলে যুক্ত হয়েছে। (ডেমো: স্বয়ংক্রিয় অনুমোদন)", "payment", "user", setOf(o.userId),
-                )
-            }
         }
     }
 
@@ -213,7 +189,6 @@ class DemoShareholderApi : ShareholderApi {
         val o = DemoStore.DOrder(s.uuid(), s.newOrderNo(), u.id, body.quantity, rate, body.method, ref, "pending", null, s.now(), null)
         s.orders += o
         s.log(u.name, "approval", "${u.name} ${Bn.num(o.qty)}টি শেয়ারের অর্ডার দিয়েছেন (${Bn.money(o.qty * o.rate)})", "info")
-        scheduleAutoConfirm(o.id)
         s.orderDto(o)
     }
 
@@ -252,7 +227,6 @@ class DemoShareholderApi : ShareholderApi {
             if (u.kycStatus != "rejected") throw ApiException("CONFLICT", "KYC আবার জমা দেওয়ার প্রয়োজন নেই", 409)
             u.nid = V.digitsOnly(d.nidNumber); u.dob = LocalDate.parse(d.dob)
             u.kycStatus = "pending"; u.kycNote = null; u.submittedAt = s.now()
-            scheduleAutoKyc(u.id)
         }
     }
 

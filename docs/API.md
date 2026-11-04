@@ -46,7 +46,8 @@ Every change here must be reflected on both sides.
 
 - `mobile`: Bangladeshi, normalised to `01XXXXXXXXX` (`^01[3-9]\d{8}$`). Bangla digits and `+88`/`88` prefix accepted on input.
 - `email`: ≤ 254 chars, simple RFC shape, stored lower-case.
-- `password`: 8–128 chars, at least one letter and one digit, not in the common-password list.
+- `password`: 8–128 chars, at least one letter, one digit and one symbol (non-alphanumeric), not in the common-password list.
+  (Applies when a password is set or changed; existing passwords keep working.)
 - `fullName`, nominee `name`: 3–100 chars, letters (Bangla/Latin), space, `.`, `-`.
 - `nidNumber`: 10, 13 or 17 digits. Nominee `idNumber`: `nid` → 10/13/17 digits, `birth_reg` → 17 digits.
 - `dob`: valid date, holder age ≥ 18.
@@ -80,7 +81,7 @@ Rules         { version, effectiveDate, sections: RuleSection[] }
 | Method | Path | Body / Query | Response |
 |---|---|---|---|
 | GET | `/health` | | `{ "ok": true }` |
-| GET | `/public/info` | | `{ companyName, hotline, email, officeAddress }` |
+| GET | `/public/info` | | `{ companyName, hotline, email, officeAddress, todayRatePaisa, dayChangePaisa }` (v2: today's rate for the login screen; change vs yesterday) |
 | GET | `/rules` | | `Rules` (current published version; 404 if never published). Public because registration links to it. |
 | GET | `/verify/:certificateNo?s=<sig>` (path is **outside** `/api/v1`, i.e. `GET /verify/RA-CERT-00124?s=...`) | | HTML page (Bangla) saying valid / invalid, holder name, shares, issue date |
 
@@ -150,7 +151,8 @@ Staff who have not enrolled get an enrollment secret on the first step and confi
 | POST | `/admin/me/password` | `{ currentPassword, newPassword }` | `204` | any |
 | GET | `/admin/dashboard` | | `AdminDashboard` | view |
 | GET | `/admin/stats/sales?period=` | | `SalesStats` | view |
-| GET | `/admin/shareholders?q=&status=all|verified|pending|suspended` | paged | `{ items: ShareholderRow[], total, nextCursor }` | view |
+| GET | `/admin/shareholders?q=&status=all|verified|pending|suspended` | paged | `{ items: ShareholderRow[], total, nextCursor, counts: { all, verified, pending, suspended } }` (v2: counts ignore `q` and `status`) | view |
+| GET | `/admin/shareholders/:id/certificate` | | `Certificate` (same as `/me/certificate`; 404 if 0 shares) | view |
 | GET | `/admin/shareholders/:id` | | `ShareholderDetail` | view |
 | GET | `/admin/shareholders/:id/contact` | | `{ mobile, email }` (audited) | view |
 | POST | `/admin/shareholders/:id/suspend` | `{ reason }` | `204` | settings_staff |
@@ -185,6 +187,8 @@ Staff who have not enrolled get an enrollment secret on the first step and confi
 | POST | `/admin/roles` | `{ name, permissions: string[] }` | `Role` | settings_staff |
 | PATCH | `/admin/roles/:id` | `{ name?, permissions? }` | `Role` (system roles immutable) | settings_staff |
 | GET | `/admin/audit?category=` | paged | `{ items: AuditEntry[], nextCursor }` | settings_staff |
+| GET | `/admin/backup` | | `BackupStatus` | settings_staff |
+| POST | `/admin/backup` | | `202 BackupStatus` (requests an immediate backup; max 1 request per 10 min → 429; audited) | settings_staff |
 | GET | `/admin/settings` | | `Settings` | view |
 | PUT | `/admin/settings` | `Settings` (without readonly fields) | `Settings` | settings_staff |
 
@@ -195,6 +199,8 @@ AdminDashboard { today: { date, ratePaisa }, pool: Pool, shareholderCount: int,
 SalesStats     { period, points: { date /*bucket start*/, shares: int, amountPaisa }[] /*ascending; daily 7, weekly 8,
                  monthly 12, yearly 5*/, totalShares, totalAmountPaisa, lastChangeShares /*last − previous bucket*/ }
 ShareholderRow { id, shareholderNo, fullName, shares: int, kycStatus, accountStatus }
+BackupStatus   { lastAt: string|null /*last finished backup*/, status: "ok"|"failed"|"running"|"never",
+                 sizeBytes: long|null, keepDays: int, requestedAt: string|null /*pending manual request*/ }
 ShareholderDetail { id, shareholderNo, fullName, mobileMasked, emailMasked, kycStatus, kycNote, accountStatus,
                  joinedAt, dob, nidMasked, shares, paidPaisa, valuePaisa, nominees: Nominee[], orders: Order[],
                  kycFiles: { id, kind: "nid_front"|"nid_back"|"photo" }[] }

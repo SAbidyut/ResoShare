@@ -3,6 +3,8 @@ package net.rapti.resoshare.core.net
 import kotlinx.coroutines.CancellationException
 import kotlinx.serialization.SerializationException
 import kotlinx.serialization.json.Json
+import net.rapti.resoshare.core.i18n.Lang
+import net.rapti.resoshare.core.i18n.t
 import net.rapti.resoshare.core.session.Session
 import net.rapti.resoshare.data.api.ErrorEnvelope
 import retrofit2.HttpException
@@ -50,8 +52,8 @@ suspend fun <T> call(block: suspend () -> T): Res<T> = try {
     val ex = e.toApiException()
     if (ex.code in SESSION_LOSS && Session.isActive) {
         Session.expire(
-            if (ex.code == "UNAUTHORIZED") "আপনার সেশন বাতিল হয়েছে। আবার লগইন করুন।"
-            else "সেশনের মেয়াদ শেষ। নিরাপত্তার জন্য আবার লগইন করুন।",
+            if (ex.code == "UNAUTHORIZED") t("আপনার সেশন বাতিল হয়েছে। আবার লগইন করুন।", "Your session was ended. Please log in again.")
+            else t("সেশনের মেয়াদ শেষ। নিরাপত্তার জন্য আবার লগইন করুন।", "Session expired. Please log in again for security."),
         )
     }
     Res.Err(ex)
@@ -63,17 +65,23 @@ fun Throwable.toApiException(): ApiException = when (this) {
         val raw = try { response()?.errorBody()?.string() } catch (_: Exception) { null }
         val env = raw?.let { runCatching { AppJson.decodeFromString(ErrorEnvelope.serializer(), it) }.getOrNull() }
         if (env != null) {
-            ApiException(env.error.code, env.error.message.ifBlank { fallbackFor(code()) }, code(), env.error.fields ?: emptyMap())
+            val fields = env.error.fields ?: emptyMap()
+            if (Lang.isEn) {
+                // The server speaks Bangla; show an English equivalent for the error code.
+                ApiException(env.error.code, englishFor(env.error.code, code()), code(), fields.mapValues { (k, v) -> englishField(k, v) })
+            } else {
+                ApiException(env.error.code, env.error.message.ifBlank { fallbackFor(code()) }, code(), fields)
+            }
         } else {
             ApiException(codeFor(code()), fallbackFor(code()), code())
         }
     }
-    is SSLException -> ApiException("TLS", "নিরাপদ সংযোগ যাচাই করা যায়নি। অনিরাপদ বা পাবলিক Wi-Fi হলে মোবাইল ডেটা ব্যবহার করুন।")
-    is SocketTimeoutException, is InterruptedIOException -> ApiException("NETWORK", "সার্ভার সাড়া দিচ্ছে না। একটু পরে আবার চেষ্টা করুন।")
-    is UnknownHostException, is ConnectException -> ApiException("NETWORK", "ইন্টারনেট সংযোগ পাওয়া যাচ্ছে না। সংযোগ দেখে আবার চেষ্টা করুন।")
-    is IOException -> ApiException("NETWORK", "নেটওয়ার্কে সমস্যা হয়েছে। আবার চেষ্টা করুন।")
-    is SerializationException, is IllegalArgumentException -> ApiException("BAD_RESPONSE", "সার্ভার থেকে অপ্রত্যাশিত উত্তর এসেছে।")
-    else -> ApiException("UNKNOWN", "কিছু একটা ভুল হয়েছে। আবার চেষ্টা করুন।")
+    is SSLException -> ApiException("TLS", t("নিরাপদ সংযোগ যাচাই করা যায়নি। অনিরাপদ বা পাবলিক Wi-Fi হলে মোবাইল ডেটা ব্যবহার করুন।", "Could not verify a secure connection. On public Wi-Fi, try mobile data."))
+    is SocketTimeoutException, is InterruptedIOException -> ApiException("NETWORK", t("সার্ভার সাড়া দিচ্ছে না। একটু পরে আবার চেষ্টা করুন।", "The server is not responding. Please try again shortly."))
+    is UnknownHostException, is ConnectException -> ApiException("NETWORK", t("ইন্টারনেট সংযোগ পাওয়া যাচ্ছে না। সংযোগ দেখে আবার চেষ্টা করুন।", "No internet connection. Check your connection and try again."))
+    is IOException -> ApiException("NETWORK", t("নেটওয়ার্কে সমস্যা হয়েছে। আবার চেষ্টা করুন।", "Network problem. Please try again."))
+    is SerializationException, is IllegalArgumentException -> ApiException("BAD_RESPONSE", t("সার্ভার থেকে অপ্রত্যাশিত উত্তর এসেছে।", "Unexpected response from the server."))
+    else -> ApiException("UNKNOWN", t("কিছু একটা ভুল হয়েছে। আবার চেষ্টা করুন।", "Something went wrong. Please try again."))
 }
 
 private fun codeFor(http: Int) = when (http) {
@@ -89,13 +97,45 @@ private fun codeFor(http: Int) = when (http) {
 }
 
 private fun fallbackFor(http: Int) = when (http) {
-    400 -> "তথ্যগুলো আবার দেখে নিন।"
-    401 -> "লগইন তথ্য সঠিক নয়।"
-    403 -> "এই কাজের অনুমতি আপনার নেই।"
-    404 -> "তথ্য পাওয়া যায়নি।"
-    409 -> "তথ্যটি ইতোমধ্যে আছে বা পরিবর্তিত হয়েছে।"
-    413 -> "ফাইলটি অনেক বড়। ৫ MB এর ছোট ছবি দিন।"
-    423 -> "অনেকবার ভুল চেষ্টা হয়েছে। কিছুক্ষণ পরে চেষ্টা করুন।"
-    429 -> "অনেক বেশি অনুরোধ। একটু পরে চেষ্টা করুন।"
-    else -> "সার্ভারে সমস্যা হয়েছে। একটু পরে চেষ্টা করুন।"
+    400 -> t("তথ্যগুলো আবার দেখে নিন।", "Please check the information.")
+    401 -> t("লগইন তথ্য সঠিক নয়।", "Incorrect login details.")
+    403 -> t("এই কাজের অনুমতি আপনার নেই।", "You don't have permission for this.")
+    404 -> t("তথ্য পাওয়া যায়নি।", "Not found.")
+    409 -> t("তথ্যটি ইতোমধ্যে আছে বা পরিবর্তিত হয়েছে।", "This already exists or has changed.")
+    413 -> t("ফাইলটি অনেক বড়। ৫ MB এর ছোট ছবি দিন।", "File too large. Use an image under 5 MB.")
+    423 -> t("অনেকবার ভুল চেষ্টা হয়েছে। কিছুক্ষণ পরে চেষ্টা করুন।", "Too many failed attempts. Try again later.")
+    429 -> t("অনেক বেশি অনুরোধ। একটু পরে চেষ্টা করুন।", "Too many requests. Please wait a moment.")
+    else -> t("সার্ভারে সমস্যা হয়েছে। একটু পরে চেষ্টা করুন।", "Server problem. Please try again later.")
+}
+
+/** English text for server error codes (the server's own messages are Bangla). */
+private fun englishFor(code: String, http: Int): String = when (code) {
+    "INVALID_INPUT" -> "Please check the information you entered."
+    "UNAUTHORIZED" -> "Incorrect login details. Repeated failures pause login for a while."
+    "TOKEN_EXPIRED", "SESSION_EXPIRED" -> "Session expired. Please log in again."
+    "MFA_INVALID" -> "The code is incorrect or has expired."
+    "FORBIDDEN" -> "You don't have permission for this."
+    "KYC_REQUIRED" -> "You can buy shares after your KYC is verified."
+    "ACCOUNT_SUSPENDED" -> "Your account is suspended. Please call the hotline."
+    "PASSWORD_CHANGE_REQUIRED" -> "Please set a new password first."
+    "NOT_FOUND" -> "Not found."
+    "CONFLICT" -> "This already exists or has already been processed."
+    "RATE_CHANGED" -> "The share rate has changed. Please review and confirm again."
+    "INSUFFICIENT_SHARES" -> "Not enough shares are left."
+    "SALE_CLOSED" -> "Share sale is closed right now."
+    "TOO_MANY_PENDING" -> "You already have 3 orders awaiting verification."
+    "PAYLOAD_TOO_LARGE" -> "File too large. Use an image under 5 MB."
+    "LOCKED" -> "Too many failed attempts. Try again later."
+    "TOO_MANY_REQUESTS" -> "Too many requests. Please wait a moment."
+    else -> if (http >= 500) "Server problem. Please try again later." else "Something went wrong. Please try again."
+}
+
+private fun englishField(key: String, value: String): String = when (key) {
+    "currentRatePaisa", "retryAfterSec" -> value
+    "currentPassword" -> "Current password is incorrect"
+    "newPassword" -> "Use letters, a number and a symbol (e.g. @ # !)"
+    "reference" -> "This reference is invalid or already used"
+    "mobile" -> "Check the mobile number"
+    "email" -> "Check the email address"
+    else -> "Please check this field"
 }

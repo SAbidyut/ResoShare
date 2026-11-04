@@ -4,6 +4,7 @@ import android.app.Application
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
+import net.rapti.resoshare.core.i18n.Lang
 import net.rapti.resoshare.core.session.Prefs
 import net.rapti.resoshare.core.session.SecureStore
 import net.rapti.resoshare.core.session.Session
@@ -21,6 +22,16 @@ object Graph {
     val tokens: TokenStore by lazy { TokenStore(secure) }
     val themeMode by lazy { MutableStateFlow(prefs.themeMode) }
 
+    /** Which half of the app is shown: "user" (shareholder) or "admin". */
+    val portal by lazy { MutableStateFlow(tokens.role ?: prefs.portal) }
+
+    fun switchPortal(p: String) {
+        if (Session.isActive) return // only from the login screens
+        prefs.portal = p
+        tokens.currentPortal = p
+        portal.value = p
+    }
+
     val shareholderApi: ShareholderApi by lazy { ApiFactory.shareholder() }
     val adminApi: AdminApi by lazy { ApiFactory.admin() }
 
@@ -29,6 +40,9 @@ object Graph {
     fun init(application: Application) {
         app = application
         Session.tokens = tokens
+        Lang.state.value = prefs.lang
+        Lang.onChange = { prefs.lang = it }
+        tokens.currentPortal = portal.value
         ApiFactory.init(application, tokens)
     }
 }

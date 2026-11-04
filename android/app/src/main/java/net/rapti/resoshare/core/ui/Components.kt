@@ -66,6 +66,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
@@ -91,6 +92,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.DialogProperties
 import net.rapti.resoshare.core.format.Bn
+import net.rapti.resoshare.core.i18n.t
 import net.rapti.resoshare.core.ui.theme.Brand
 import net.rapti.resoshare.core.ui.theme.Gradient
 import net.rapti.resoshare.core.ui.theme.Kalpurush
@@ -148,13 +150,14 @@ fun ScreenHeader(
         Modifier
             .fillMaxWidth()
             .background(c.header)
+            .headerBubble()
             .statusBarsPadding()
             .padding(start = 20.dp, end = 20.dp, top = 12.dp, bottom = 20.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             if (onBack != null) {
-                CircleIconButton(ResoIcons.Back, "পেছনে যান", onBack)
+                CircleIconButton(ResoIcons.Back, t("পেছনে যান", "Back"), onBack)
             }
             Column(Modifier.weight(1f)) {
                 T(title, 22.sp, FontWeight.Bold, Color.White, maxLines = 2)
@@ -164,6 +167,12 @@ fun ScreenHeader(
         }
         if (below != null) below()
     }
+}
+
+/** Large translucent circle in the header's top-right corner (v2 design). */
+fun Modifier.headerBubble(): Modifier = this.drawBehind {
+    val r = size.width * 0.32f
+    drawCircle(Color.White.copy(alpha = 0.06f), radius = r, center = androidx.compose.ui.geometry.Offset(size.width - r * 0.35f, r * 0.15f))
 }
 
 @Composable
@@ -199,7 +208,7 @@ fun CircleIconButton(
                     .background(Brand.Amber)
                     .padding(horizontal = 4.dp),
                 contentAlignment = Alignment.Center,
-            ) { T(if (badge > 99) "৯৯+" else Bn.num(badge), 11.sp, FontWeight.Bold, Brand.Navy, lineHeight = 14.sp) }
+            ) { T(if (badge > 99) Bn.digits("99+") else Bn.num(badge), 11.sp, FontWeight.Bold, Brand.Navy, lineHeight = 14.sp) }
         }
     }
 }
@@ -420,7 +429,7 @@ fun StepButton(plus: Boolean, onClick: () -> Unit, size: Dp = 56.dp, enabled: Bo
             .background(if (plus) c.ink else c.surface)
             .border(1.dp, if (plus) c.ink else c.inputBorder, shape)
             .pressable(enabled = enabled, onClick = onClick)
-            .semantics { contentDescription = if (plus) "বাড়ান" else "কমান" },
+            .semantics { contentDescription = if (plus) t("বাড়ান", "Increase") else t("কমান", "Decrease") },
         contentAlignment = Alignment.Center,
     ) {
         Icon(if (plus) ResoIcons.Plus else ResoIcons.Minus, null, tint = if (plus) c.onInk else c.ink,
@@ -449,6 +458,7 @@ fun Field(
     onDone: (() -> Unit)? = null,
     trailing: (@Composable () -> Unit)? = null,
     hint: String? = null,
+    leading: ImageVector? = null,
 ) {
     val c = Reso.colors
     val source = remember { MutableInteractionSource() }
@@ -493,6 +503,10 @@ fun Field(
                         .padding(horizontal = 16.dp, vertical = 12.dp),
                     verticalAlignment = if (singleLine) Alignment.CenterVertically else Alignment.Top,
                 ) {
+                    if (leading != null) {
+                        Icon(leading, null, tint = if (focused) c.ink else c.muted, modifier = Modifier.size(20.dp))
+                        Spacer(Modifier.width(12.dp))
+                    }
                     Box(Modifier.weight(1f)) {
                         if (value.isEmpty()) T(placeholder, 16.sp, color = c.muted.copy(alpha = 0.8f), maxLines = if (singleLine) 1 else 4)
                         inner()
@@ -500,7 +514,7 @@ fun Field(
                     if (password) {
                         Icon(
                             if (reveal) ResoIcons.EyeOff else ResoIcons.Eye,
-                            contentDescription = if (reveal) "পাসওয়ার্ড লুকান" else "পাসওয়ার্ড দেখুন",
+                            contentDescription = if (reveal) t("পাসওয়ার্ড লুকান", "Hide password") else t("পাসওয়ার্ড দেখুন", "Show password"),
                             tint = c.muted,
                             modifier = Modifier.size(22.dp).clip(CircleShape).clickable { reveal = !reveal },
                         )
@@ -647,9 +661,9 @@ fun Tag(text: String, bg: Color, fg: Color, modifier: Modifier = Modifier, size:
 fun StatusText(status: String, size: TextUnit = 12.sp) {
     val c = Reso.colors
     val (text, color) = when (status) {
-        "confirmed" -> "নিশ্চিত" to c.green
-        "pending" -> "যাচাই চলছে" to c.brown
-        "cancelled" -> "বাতিল" to c.red
+        "confirmed" -> t("নিশ্চিত", "Confirmed") to c.green
+        "pending" -> t("যাচাই চলছে", "Verifying") to c.brown
+        "cancelled" -> t("বাতিল", "Cancelled") to c.red
         else -> status to c.muted
     }
     T(text, size, FontWeight.Bold, color)
@@ -659,16 +673,31 @@ fun StatusText(status: String, size: TextUnit = 12.sp) {
 fun KycText(status: String, accountStatus: String = "active", size: TextUnit = 13.sp) {
     val c = Reso.colors
     val (text, color) = when {
-        accountStatus == "suspended" -> "স্থগিত" to c.red
-        status == "verified" -> "যাচাইকৃত" to c.green
-        status == "rejected" -> "বাতিল" to c.red
-        else -> "অপেক্ষমাণ" to c.brown
+        accountStatus == "suspended" -> t("স্থগিত", "Suspended") to c.red
+        status == "verified" -> t("যাচাইকৃত", "Verified") to c.green
+        status == "rejected" -> t("বাতিল", "Rejected") to c.red
+        else -> t("অপেক্ষমাণ", "Pending") to c.brown
     }
     T(text, size, FontWeight.Bold, color)
 }
 
-fun methodLabel(m: String) = if (m == "cash") "ক্যাশ" else "ব্যাংক ট্রান্সফার"
-fun methodShort(m: String) = if (m == "cash") "ক্যাশ" else "ব্যাংক"
+fun methodLabel(m: String) = if (m == "cash") t("ক্যাশ", "Cash") else t("ব্যাংক ট্রান্সফার", "Bank transfer")
+fun methodShort(m: String) = if (m == "cash") t("ক্যাশ", "Cash") else t("ব্যাংক", "Bank")
+
+/** Status as a soft pill (v2 design): নিশ্চিত green, যাচাই চলছে amber, বাতিল red. */
+@Composable
+fun StatusPill(status: String) {
+    val c = Reso.colors
+    val (text, bg, fg) = when (status) {
+        "confirmed", "verified" -> Triple(if (status == "verified") t("যাচাইকৃত", "Verified") else t("নিশ্চিত", "Confirmed"), c.successBg, c.green)
+        "pending" -> Triple(t("যাচাই চলছে", "Verifying"), c.warnBg, c.brown)
+        "kyc_pending" -> Triple(t("অপেক্ষমাণ", "Pending"), c.warnBg, c.brown)
+        "suspended" -> Triple(t("স্থগিত", "Suspended"), c.dangerBg, c.red)
+        "cancelled", "rejected" -> Triple(if (status == "rejected") t("বাতিল", "Rejected") else t("বাতিল", "Cancelled"), c.dangerBg, c.red)
+        else -> Triple(status, c.tagBlueBg, c.tagBlueText)
+    }
+    Tag(text, bg, fg)
+}
 
 @Composable
 fun ProgressTrack(fraction: Float, modifier: Modifier = Modifier, height: Dp = 8.dp, color: Color = Reso.colors.ink) {
@@ -772,7 +801,7 @@ fun ErrorBlock(message: String, onRetry: (() -> Unit)?, modifier: Modifier = Mod
     ) {
         IconDisc(ResoIcons.Info, Reso.colors.dangerBg, Reso.colors.red, 56.dp, 28.dp)
         T(message, 15.sp, color = Reso.colors.textSoft, align = TextAlign.Center)
-        if (onRetry != null) SecondaryButton("আবার চেষ্টা করুন", onRetry, Modifier.widthIn(max = 260.dp), height = 48.dp, icon = ResoIcons.Refresh)
+        if (onRetry != null) SecondaryButton(t("আবার চেষ্টা করুন", "Try again"), onRetry, Modifier.widthIn(max = 260.dp), height = 48.dp, icon = ResoIcons.Refresh)
     }
 }
 
@@ -797,10 +826,11 @@ fun Refreshable(refreshing: Boolean, onRefresh: () -> Unit, modifier: Modifier =
 /** Smoothly counts a Long value (money/shares) from its previous value to the new one. */
 @Composable
 fun animatedLong(target: Long, durationMs: Int = 900): Long {
-    val start = remember { mutableLongStateOf(0L) }
+    val start = remember { mutableLongStateOf(target) }
     val anim = remember { Animatable(1f) }
-    var shown by remember { mutableLongStateOf(0L) }
+    var shown by remember { mutableLongStateOf(target) }
     LaunchedEffect(target) {
+        if (shown == target) return@LaunchedEffect
         start.longValue = shown
         anim.snapTo(0f)
         anim.animateTo(1f, tween(durationMs, easing = FastOutSlowInEasing)) {
@@ -831,13 +861,13 @@ fun ConfirmDialog(
         confirmButton = {
             TextButton(onClick = onConfirm) { T(confirm, 16.sp, FontWeight.Bold, if (danger) c.red else c.ink) }
         },
-        dismissButton = { TextButton(onClick = onDismiss) { T("বাতিল", 16.sp, color = c.muted) } },
+        dismissButton = { TextButton(onClick = onDismiss) { T(t("বাতিল", "Cancel"), 16.sp, color = c.muted) } },
     )
 }
 
 /** Dialog asking for a short reason (reject / suspend). */
 @Composable
-fun ReasonDialog(title: String, confirm: String, onConfirm: (String) -> Unit, onDismiss: () -> Unit, placeholder: String = "কারণ লিখুন") {
+fun ReasonDialog(title: String, confirm: String, onConfirm: (String) -> Unit, onDismiss: () -> Unit, placeholder: String = t("কারণ লিখুন", "Write the reason")) {
     val c = Reso.colors
     var reason by rememberSaveable { mutableStateOf("") }
     AlertDialog(
@@ -853,7 +883,7 @@ fun ReasonDialog(title: String, confirm: String, onConfirm: (String) -> Unit, on
                 T(confirm, 16.sp, FontWeight.Bold, if (reason.trim().length >= 3) c.red else c.muted)
             }
         },
-        dismissButton = { TextButton(onClick = onDismiss) { T("বাতিল", 16.sp, color = c.muted) } },
+        dismissButton = { TextButton(onClick = onDismiss) { T(t("বাতিল", "Cancel"), 16.sp, color = c.muted) } },
     )
 }
 
@@ -873,7 +903,7 @@ fun SecretDialog(title: String, secret: String, note: String, onDismiss: () -> U
                 T(note, 14.sp, color = c.textSoft)
             }
         },
-        confirmButton = { TextButton(onClick = onDismiss) { T("লিখে রেখেছি", 16.sp, FontWeight.Bold, c.ink) } },
+        confirmButton = { TextButton(onClick = onDismiss) { T(t("লিখে রেখেছি", "I have noted it"), 16.sp, FontWeight.Bold, c.ink) } },
     )
 }
 
@@ -881,35 +911,83 @@ fun SecretDialog(title: String, secret: String, note: String, onDismiss: () -> U
 
 data class NavItem(val route: String, val label: String, val icon: ImageVector, val badge: Int = 0)
 
+/**
+ * v2 bottom bar. The selected item gets a soft pill behind its icon (amber for the shareholder
+ * portal, navy for admin). With [fab], a raised round "+" button sits in the middle.
+ */
 @Composable
-fun BottomBar(items: List<NavItem>, selected: String?, onSelect: (String) -> Unit) {
+fun BottomBar(
+    items: List<NavItem>,
+    selected: String?,
+    onSelect: (String) -> Unit,
+    adminStyle: Boolean = false,
+    fab: NavItem? = null,
+    onFab: () -> Unit = {},
+) {
     val c = Reso.colors
-    Column(Modifier.fillMaxWidth().background(c.surface)) {
-        RowDivider()
-        Row(Modifier.fillMaxWidth().navigationBarsPadding().padding(start = 8.dp, end = 8.dp, top = 6.dp, bottom = 8.dp)) {
-            items.forEach { item ->
-                val sel = item.route == selected
-                val color by animateColorAsState(if (sel) c.ink else c.muted, tween(200), label = "nav")
-                val lift by animateDpAsState(if (sel) (-2).dp else 0.dp, label = "lift")
-                Column(
-                    Modifier.weight(1f).heightIn(min = 54.dp).clip(RoundedCornerShape(12.dp))
-                        .clickable(role = Role.Tab) { onSelect(item.route) }.padding(vertical = 4.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.Center,
-                ) {
-                    Box(Modifier.offset { androidx.compose.ui.unit.IntOffset(0, lift.roundToPx()) }) {
-                        Icon(item.icon, item.label, tint = color, modifier = Modifier.size(24.dp))
-                        if (item.badge > 0) {
-                            Box(
-                                Modifier.align(Alignment.TopEnd).offset(x = 8.dp, y = (-6).dp).size(18.dp).clip(CircleShape).background(Brand.Amber),
-                                contentAlignment = Alignment.Center,
-                            ) { T(if (item.badge > 9) "৯+" else Bn.num(item.badge), 10.sp, FontWeight.Bold, Brand.Navy, lineHeight = 12.sp) }
+    Box(Modifier.fillMaxWidth()) {
+        Column(Modifier.fillMaxWidth().padding(top = if (fab != null) 14.dp else 0.dp).background(c.surface)) {
+            RowDivider()
+            Row(Modifier.fillMaxWidth().navigationBarsPadding().padding(start = 6.dp, end = 6.dp, top = 6.dp, bottom = 8.dp)) {
+                val half = items.size / 2
+                items.forEachIndexed { i, item ->
+                    if (fab != null && i == half) {
+                        Column(Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally) {
+                            Spacer(Modifier.height(30.dp))
+                            T(fab.label, 13.sp, FontWeight.Bold, if (fab.route == selected) c.ink else c.text, maxLines = 1)
                         }
                     }
-                    T(item.label, 13.sp, if (sel) FontWeight.Bold else FontWeight.Normal, color, maxLines = 1)
+                    BarItem(item, item.route == selected, adminStyle, Modifier.weight(1f)) { onSelect(item.route) }
                 }
             }
         }
+        if (fab != null) {
+            Box(
+                Modifier.align(Alignment.TopCenter).size(58.dp).clip(CircleShape).background(c.surface).padding(4.dp),
+                contentAlignment = Alignment.Center,
+            ) {
+                Box(
+                    Modifier.fillMaxSize().clip(CircleShape).background(Brand.Amber).pressable(onClick = onFab)
+                        .semantics { contentDescription = fab.label },
+                    contentAlignment = Alignment.Center,
+                ) { Icon(ResoIcons.Plus, null, tint = Brand.Navy, modifier = Modifier.size(28.dp)) }
+            }
+        }
+    }
+}
+
+@Composable
+private fun BarItem(item: NavItem, sel: Boolean, adminStyle: Boolean, modifier: Modifier, onClick: () -> Unit) {
+    val c = Reso.colors
+    val pillBg by animateColorAsState(
+        when {
+            !sel -> Color.Transparent
+            adminStyle -> c.ink
+            else -> c.warnBg
+        }, tween(220), label = "pill",
+    )
+    val iconColor = when {
+        sel && adminStyle -> c.onInk
+        sel -> c.ink
+        else -> c.muted
+    }
+    Column(
+        modifier.heightIn(min = 54.dp).clip(RoundedCornerShape(12.dp)).clickable(role = Role.Tab, onClick = onClick).padding(vertical = 2.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(2.dp, Alignment.CenterVertically),
+    ) {
+        Box {
+            Box(Modifier.clip(RoundedCornerShape(16.dp)).background(pillBg).padding(horizontal = 16.dp, vertical = 4.dp)) {
+                Icon(item.icon, item.label, tint = iconColor, modifier = Modifier.size(24.dp))
+            }
+            if (item.badge > 0) {
+                Box(
+                    Modifier.align(Alignment.TopEnd).offset(x = (-6).dp, y = (-4).dp).size(18.dp).clip(CircleShape).background(Brand.Amber),
+                    contentAlignment = Alignment.Center,
+                ) { T(if (item.badge > 9) Bn.digits("9+") else Bn.num(item.badge), 10.sp, FontWeight.Bold, Brand.Navy, lineHeight = 12.sp) }
+            }
+        }
+        T(item.label, 13.sp, if (sel) FontWeight.Bold else FontWeight.Normal, if (sel) c.text else c.muted, maxLines = 1)
     }
 }
 
@@ -932,7 +1010,7 @@ fun BrandLogo(size: Dp = 44.dp) {
 
 @Composable
 fun DemoBadge(modifier: Modifier = Modifier) {
-    Tag("ডেমো সংস্করণ · সব তথ্য নমুনা", Brand.Amber, Brand.Navy, modifier, 12.sp)
+    Tag(t("ডেমো সংস্করণ · সব তথ্য নমুনা", "Demo version · sample data"), Brand.Amber, Brand.Navy, modifier, 12.sp)
 }
 
 /** Shape helper for top-rounded sheets (login card). */

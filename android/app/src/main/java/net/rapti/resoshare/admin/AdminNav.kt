@@ -231,7 +231,9 @@ private fun AdminNavHost(start: String) {
                     NavItem(Routes.MORE, "আরও", ResoIcons.More),
                 ),
                 route,
-            ) { an.tab(it) }
+                onSelect = { an.tab(it) },
+                adminStyle = true,
+            )
         }
     }
 }

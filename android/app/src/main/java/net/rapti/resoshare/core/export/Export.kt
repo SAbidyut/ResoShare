@@ -18,6 +18,7 @@ import androidx.core.content.FileProvider
 import androidx.core.content.res.ResourcesCompat
 import net.rapti.resoshare.R
 import net.rapti.resoshare.core.format.Bn
+import net.rapti.resoshare.core.i18n.t
 import net.rapti.resoshare.core.ui.qrMatrix
 import net.rapti.resoshare.data.api.Certificate
 import net.rapti.resoshare.data.api.Report
@@ -129,7 +130,7 @@ object Exporter {
             val c = page!!.canvas
             c.drawRect(0f, 0f, w.toFloat(), 64f, Paint().apply { color = Color.rgb(11, 29, 58) })
             c.text("$company · ${report.title}", paint(ctx, 16f, Color.WHITE, true), margin, 14f, w - 200)
-            c.text("তৈরি: ${Bn.date(Bn.today())} · পৃষ্ঠা ${Bn.num(pageNo)}", paint(ctx, 10f, Color.rgb(248, 200, 107)), margin, 40f, w - 200)
+            c.text(t("তৈরি: ${Bn.date(Bn.today())} · পৃষ্ঠা ${Bn.num(pageNo)}", "Generated: ${Bn.date(Bn.today())} · Page ${Bn.num(pageNo)}"), paint(ctx, 10f, Color.rgb(248, 200, 107)), margin, 40f, w - 200)
             y = 80f
             val hh = report.columns.maxOf { StaticLayout.Builder.obtain(it, 0, it.length, head, colW - 8).build().height } + 10f
             c.drawRect(margin, y, w - margin, y + hh, Paint().apply { color = Color.rgb(18, 41, 79) })
@@ -147,7 +148,7 @@ object Exporter {
             row.forEachIndexed { i, t -> c.text(Bn.digits(t), body, margin + i * colW + 4, y + 5, colW - 8) }
             y += rh
         }
-        if (report.rows.isEmpty()) page!!.canvas.text("এই সময়ে কোনো তথ্য নেই।", body, margin, y + 12, w - 64)
+        if (report.rows.isEmpty()) page!!.canvas.text(t("এই সময়ে কোনো তথ্য নেই।", "No data for this period."), body, margin, y + 12, w - 64)
         doc.finishPage(page)
         val out = ByteArrayOutputStream()
         doc.writeTo(out); doc.close()
@@ -155,7 +156,7 @@ object Exporter {
     }
 
     /** Share certificate PDF (A4 portrait) matching the in-app design. */
-    fun certificatePdf(ctx: Context, c: Certificate, chairman: String = "চেয়ারম্যান"): ExportFile {
+    fun certificatePdf(ctx: Context, c: Certificate, chairman: String = t("চেয়ারম্যান", "Chairman")): ExportFile {
         val doc = PdfDocument()
         val w = 595; val h = 842
         val page = doc.startPage(PdfDocument.PageInfo.Builder(w, h, 1).create())
@@ -175,14 +176,14 @@ object Exporter {
         cv.drawPath(wave, Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.STROKE; strokeWidth = 3.4f; color = amber; strokeCap = Paint.Cap.ROUND })
         cv.text(c.companyName, paint(ctx, 22f, navy, true), 206f, 97f, 300)
         val center = Layout.Alignment.ALIGN_CENTER
-        cv.text("শেয়ার সার্টিফিকেট", paint(ctx, 34f, navy, true), 60f, 170f, w - 120, center)
-        cv.text("এই মর্মে প্রত্যয়ন করা যাচ্ছে যে", paint(ctx, 15f, Color.rgb(91, 101, 120)), 60f, 230f, w - 120, center)
+        cv.text(t("শেয়ার সার্টিফিকেট", "Share Certificate"), paint(ctx, 34f, navy, true), 60f, 170f, w - 120, center)
+        cv.text(t("এই মর্মে প্রত্যয়ন করা যাচ্ছে যে", "This is to certify that"), paint(ctx, 15f, Color.rgb(91, 101, 120)), 60f, 230f, w - 120, center)
         cv.text(c.fullName, paint(ctx, 30f, navy, true), 60f, 262f, w - 120, center)
-        cv.text("কোম্পানির ${Bn.num(c.shares)}টি শেয়ারের মালিক", paint(ctx, 18f), 60f, 318f, w - 120, center)
+        cv.text(t("কোম্পানির ${Bn.num(c.shares)}টি শেয়ারের মালিক", "is the owner of ${Bn.num(c.shares)} shares of the company"), paint(ctx, 18f), 60f, 318f, w - 120, center)
         cv.drawLine(80f, 372f, w - 80f, 372f, Paint().apply { color = Color.rgb(225, 230, 239) })
         val label = paint(ctx, 14f, Color.rgb(91, 101, 120)); val value = paint(ctx, 14f, navy, true)
         var y = 392f
-        listOf("শেয়ারহোল্ডার ID" to c.shareholderNo, "সার্টিফিকেট নম্বর" to c.certificateNo, "ইস্যুর তারিখ" to Bn.date(c.issuedOn), "শেয়ার সংখ্যা" to "${Bn.num(c.shares)}টি").forEach { (k, v) ->
+        listOf(t("শেয়ারহোল্ডার ID", "Shareholder ID") to c.shareholderNo, t("সার্টিফিকেট নম্বর", "Certificate No.") to c.certificateNo, t("ইস্যুর তারিখ", "Issue date") to Bn.date(c.issuedOn), t("শেয়ার সংখ্যা", "Shares") to t("${Bn.num(c.shares)}টি", "${Bn.num(c.shares)}")).forEach { (k, v) ->
             cv.text(k, label, 80f, y, 220)
             cv.text(v, value, 300f, y, w - 380, Layout.Alignment.ALIGN_OPPOSITE)
             y += 30f
@@ -193,10 +194,10 @@ object Exporter {
         val cell = qrSize / m.width
         val qp = Paint().apply { color = navy }
         for (yy in 0 until m.height) for (xx in 0 until m.width) if (m[xx, yy]) cv.drawRect(qx + xx * cell, qy + yy * cell, qx + (xx + 1) * cell + 0.3f, qy + (yy + 1) * cell + 0.3f, qp)
-        cv.text("স্ক্যান করে যাচাই করুন", paint(ctx, 11f, Color.rgb(91, 101, 120)), qx - 20f, qy + qrSize + 8f, (qrSize + 40).toInt(), center)
+        cv.text(t("স্ক্যান করে যাচাই করুন", "Scan to verify"), paint(ctx, 11f, Color.rgb(91, 101, 120)), qx - 20f, qy + qrSize + 8f, (qrSize + 40).toInt(), center)
         cv.drawLine(80f, 650f, 260f, 650f, Paint().apply { color = navy; strokeWidth = 1.2f })
         cv.text(chairman, paint(ctx, 13f, Color.rgb(91, 101, 120)), 80f, 658f, 200)
-        cv.text("যাচাই লিংক: ${c.verifyUrl}", paint(ctx, 8.5f, Color.rgb(91, 101, 120)), 60f, h - 80f, w - 120, center)
+        cv.text(t("যাচাই লিংক: ${c.verifyUrl}", "Verify: ${c.verifyUrl}"), paint(ctx, 8.5f, Color.rgb(91, 101, 120)), 60f, h - 80f, w - 120, center)
         doc.finishPage(page)
         val out = ByteArrayOutputStream()
         doc.writeTo(out); doc.close()
@@ -218,7 +219,7 @@ object Exporter {
             clipData = ClipData.newRawUri(f.name, uri)
             addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
         }
-        return Intent.createChooser(send, "শেয়ার করুন")
+        return Intent.createChooser(send, t("শেয়ার করুন", "Share"))
     }
 
     fun writeTo(ctx: Context, uri: Uri, f: ExportFile) {

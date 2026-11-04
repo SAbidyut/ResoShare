@@ -14,10 +14,11 @@ object Auth {
 
     suspend fun logout(message: String?) {
         val rt = Graph.tokens.refreshToken
+        val admin = (Graph.tokens.role ?: Graph.portal.value) == "admin"
         if (rt != null) {
             withTimeoutOrNull(4_000) {
                 runCatching {
-                    if (BuildConfig.IS_ADMIN) Graph.adminApi.logout(RefreshRequest(rt))
+                    if (admin) Graph.adminApi.logout(RefreshRequest(rt))
                     else Graph.shareholderApi.logout(RefreshRequest(rt))
                 }
             }

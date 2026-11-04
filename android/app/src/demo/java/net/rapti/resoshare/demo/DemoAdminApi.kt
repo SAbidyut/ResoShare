@@ -105,7 +105,8 @@ class DemoAdminApi : AdminApi {
     private fun tempPassword(): String {
         val chars = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789"
         val r = SecureRandom()
-        return (1..10).map { chars[r.nextInt(chars.length)] }.joinToString("") + r.nextInt(10)
+        val symbols = "@#!%*"
+        return (1..9).map { chars[r.nextInt(chars.length)] }.joinToString("") + symbols[r.nextInt(symbols.length)] + r.nextInt(10)
     }
 
     override suspend fun login(body: AdminLoginRequest): AdminLoginResult = op {
@@ -189,7 +190,12 @@ class DemoAdminApi : AdminApi {
             query.isEmpty() || it.name.lowercase().contains(query) || it.shareholderNo.lowercase().contains(asciiQ) ||
                 it.mobile == V.normalizeMobile(asciiQ) || it.email.equals(query, ignoreCase = true)
         }.sortedByDescending { s.sharesOf(it) }
-        ShareholderPage(list.map(::row), s.users.size, null)
+        ShareholderPage(list.map(::row), s.users.size, null, net.rapti.resoshare.data.api.StatusCounts(
+            s.users.size,
+            s.users.count { it.kycStatus == "verified" && it.accountStatus == "active" },
+            s.users.count { it.kycStatus != "verified" && it.accountStatus == "active" },
+            s.users.count { it.accountStatus == "suspended" },
+        ))
     }
 
     private fun mask(m: String) = if (m.length >= 11) Bn.digits(m.take(5)) + "-••••••" else "••••"
@@ -211,6 +217,35 @@ class DemoAdminApi : AdminApi {
         val u = s.user(id)
         s.log(st.name, "shareholder", "${u.name}-এর যোগাযোগের তথ্য দেখেছেন", "info")
         Contact(u.mobile, u.email)
+    }
+
+    override suspend fun shareholderCertificate(id: String): net.rapti.resoshare.data.api.Certificate = op {
+        val st = need(Perm.VIEW)
+        val u = s.user(id)
+        val shares = s.sharesOf(u)
+        if (shares == 0) throw ApiException("NOT_FOUND", "এই শেয়ারহোল্ডারের এখনো কোনো শেয়ার নেই", 404)
+        val last = s.orders.filter { it.userId == u.id && it.status == "confirmed" }.maxOf { it.decidedAt ?: it.createdAt }
+        val issued = last.atZone(Bn.DHAKA).toLocalDate().toString()
+        val cert = "RA-CERT-%05d".format(u.no)
+        s.log(st.name, "shareholder", "${u.name}-এর সার্টিফিকেট দেখা হয়েছে", "info")
+        net.rapti.resoshare.data.api.Certificate(cert, u.shareholderNo, u.name, shares, issued, "https://share.rapti.net/verify/$cert?s=demo", s.settings.company.name)
+    }
+
+    private var lastBackup = java.time.Instant.now().minus(java.time.Duration.ofHours(17))
+    private var backupRequested: java.time.Instant? = null
+
+    override suspend fun backup(): net.rapti.resoshare.data.api.BackupStatus = op {
+        need(Perm.SETTINGS)
+        net.rapti.resoshare.data.api.BackupStatus(lastBackup.iso(), "ok", 1_843_200, 14, backupRequested?.iso())
+    }
+
+    override suspend fun requestBackup(): net.rapti.resoshare.data.api.BackupStatus = op {
+        val st = need(Perm.SETTINGS)
+        val req = backupRequested
+        if (req != null && req.isAfter(s.now().minusSeconds(600))) throw ApiException("TOO_MANY_REQUESTS", "১০ মিনিটে একবারই ব্যাকআপ নেওয়া যায়", 429)
+        backupRequested = s.now(); lastBackup = s.now()
+        s.log(st.name, "settings", "ডাটাবেস ব্যাকআপের অনুরোধ", "info")
+        net.rapti.resoshare.data.api.BackupStatus(lastBackup.iso(), "ok", 1_843_200, 14, backupRequested?.iso())
     }
 
     override suspend fun suspend(id: String, body: Reason) = op {

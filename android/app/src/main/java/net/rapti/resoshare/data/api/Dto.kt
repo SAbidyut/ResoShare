@@ -167,7 +167,15 @@ data class PaymentInfo(
     val accountNumber: String,
 )
 
-@Serializable data class PublicInfo(val companyName: String, val hotline: String, val email: String, val officeAddress: String)
+@Serializable
+data class PublicInfo(
+    val companyName: String,
+    val hotline: String,
+    val email: String,
+    val officeAddress: String,
+    val todayRatePaisa: Long = 0,
+    val dayChangePaisa: Long = 0,
+)
 
 @Serializable data class NoticePage(val items: List<Notice>, val nextCursor: String? = null, val unread: Int = 0)
 
@@ -240,7 +248,8 @@ data class ShareholderRow(
     val accountStatus: String,
 )
 
-@Serializable data class ShareholderPage(val items: List<ShareholderRow>, val total: Int, val nextCursor: String? = null)
+@Serializable data class StatusCounts(val all: Int = 0, val verified: Int = 0, val pending: Int = 0, val suspended: Int = 0)
+@Serializable data class ShareholderPage(val items: List<ShareholderRow>, val total: Int, val nextCursor: String? = null, val counts: StatusCounts? = null)
 @Serializable data class KycFile(val id: String, val kind: String)
 
 @Serializable
@@ -417,6 +426,15 @@ data class PaymentSettings(
 
 @Serializable data class SecuritySettings(val autoLogoutMinutes: Int, val mfaRequired: Boolean = true)
 @Serializable data class Settings(val company: CompanySettings, val payment: PaymentSettings, val security: SecuritySettings)
+
+@Serializable
+data class BackupStatus(
+    val lastAt: String? = null,
+    val status: String = "never",
+    val sizeBytes: Long? = null,
+    val keepDays: Int = 14,
+    val requestedAt: String? = null,
+)
 
 object Perm {
     const val VIEW = "view"

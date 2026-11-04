@@ -1,5 +1,6 @@
 package net.rapti.resoshare.core.format
 
+import net.rapti.resoshare.core.i18n.Lang
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
@@ -7,7 +8,10 @@ import java.time.ZonedDateTime
 import java.time.format.DateTimeParseException
 import kotlin.math.abs
 
-/** Bangla formatting helpers. All money is integer paisa; never floating point. */
+/**
+ * Number/date formatting for the current app language (Bangla digits and month names in Bangla,
+ * ASCII digits and English names in English). All money is integer paisa; never floating point.
+ */
 object Bn {
     val DHAKA: ZoneId = ZoneId.of("Asia/Dhaka")
     private const val DIGITS = "০১২৩৪৫৬৭৮৯"
@@ -21,9 +25,21 @@ object Bn {
     )
     // java.time DayOfWeek: MONDAY=1 … SUNDAY=7
     private val WEEKDAYS_SHORT = arrayOf("সোম", "মঙ্গল", "বুধ", "বৃহ", "শুক্র", "শনি", "রবি")
+    private val MONTHS_EN = arrayOf(
+        "January", "February", "March", "April", "May", "June",
+        "July", "August", "September", "October", "November", "December",
+    )
+    private val MONTHS_SHORT_EN = arrayOf("Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec")
+    private val WEEKDAYS_SHORT_EN = arrayOf("Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun")
+    private val months get() = if (Lang.isEn) MONTHS_EN else MONTHS
+    private val monthsShort get() = if (Lang.isEn) MONTHS_SHORT_EN else MONTHS_SHORT
+    private val weekdays get() = if (Lang.isEn) WEEKDAYS_SHORT_EN else WEEKDAYS_SHORT
 
-    /** Replace ASCII digits with Bangla digits. */
-    fun digits(s: String): String = buildString(s.length) {
+    /** Replace ASCII digits with Bangla digits (no-op in English). */
+    fun digits(s: String): String = if (Lang.isEn) s else bnDigits(s)
+
+    /** Always Bangla digits, regardless of app language. */
+    fun bnDigits(s: String): String = buildString(s.length) {
         for (c in s) append(if (c in '0'..'9') DIGITS[c - '0'] else c)
     }
 
@@ -107,19 +123,19 @@ object Bn {
 
     private fun two(n: Int) = digits(if (n < 10) "0$n" else "$n")
 
-    fun monthName(month: Int): String = MONTHS[month - 1]
-    fun monthShort(month: Int): String = MONTHS_SHORT[month - 1]
+    fun monthName(month: Int): String = months[month - 1]
+    fun monthShort(month: Int): String = monthsShort[month - 1]
 
     /** ২৮ অক্টোবর ২০২৬ */
-    fun date(d: LocalDate): String = "${two(d.dayOfMonth)} ${MONTHS[d.monthValue - 1]} ${digits(d.year.toString())}"
+    fun date(d: LocalDate): String = "${two(d.dayOfMonth)} ${months[d.monthValue - 1]} ${digits(d.year.toString())}"
     fun date(s: String?): String = parseDate(s)?.let { date(it) } ?: "—"
 
     /** ০৪ নভেম্বর */
-    fun dayMonth(d: LocalDate): String = "${two(d.dayOfMonth)} ${MONTHS[d.monthValue - 1]}"
+    fun dayMonth(d: LocalDate): String = "${two(d.dayOfMonth)} ${months[d.monthValue - 1]}"
 
     /** বুধ, ০৫ নভে */
     fun weekdayDayMonth(d: LocalDate): String =
-        "${WEEKDAYS_SHORT[d.dayOfWeek.value - 1]}, ${two(d.dayOfMonth)} ${MONTHS_SHORT[d.monthValue - 1]}"
+        "${weekdays[d.dayOfWeek.value - 1]}, ${two(d.dayOfMonth)} ${monthsShort[d.monthValue - 1]}"
 
     /** ১১:৪২ AM */
     fun time(z: ZonedDateTime): String {
@@ -133,10 +149,20 @@ object Bn {
         val d = z.toLocalDate()
         val t = today()
         return when (d) {
-            t -> if (withTime) "আজ, ${time(z)}" else "আজ"
-            t.minusDays(1) -> if (withTime) "গতকাল, ${time(z)}" else "গতকাল"
+            t -> if (withTime) "${today}, ${time(z)}" else today
+            t.minusDays(1) -> if (withTime) "${yesterday}, ${time(z)}" else yesterday
             else -> date(d)
         }
+    }
+
+    val today: String get() = if (Lang.isEn) "Today" else "আজ"
+    val yesterday: String get() = if (Lang.isEn) "Yesterday" else "গতকাল"
+
+    /** "আজ · ০৪ নভেম্বর" style day header. */
+    fun dayHeader(d: LocalDate): String = when (d) {
+        today() -> "$today · ${dayMonth(d)}"
+        today().minusDays(1) -> "$yesterday · ${dayMonth(d)}"
+        else -> date(d)
     }
 
     /** Date part of an ISO timestamp in Dhaka. */
@@ -146,7 +172,7 @@ object Bn {
     fun axisLabel(d: LocalDate, period: String): String = when (period) {
         "daily" -> two(d.dayOfMonth)
         "weekly" -> "${two(d.dayOfMonth)}/${digits(d.monthValue.toString())}"
-        "monthly" -> MONTHS_SHORT[d.monthValue - 1]
+        "monthly" -> monthsShort[d.monthValue - 1]
         else -> digits(d.year.toString())
     }
 

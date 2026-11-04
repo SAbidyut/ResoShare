@@ -51,8 +51,8 @@ android {
         applicationId = "net.rapti.resoshare"
         minSdk = 26
         targetSdk = 36
-        versionCode = 1
-        versionName = "1.0.0"
+        versionCode = 2
+        versionName = "2.0.0"
         vectorDrawables { useSupportLibrary = true }
         buildConfigField("String", "API_BASE_URL", "\"$apiBaseUrl\"")
         buildConfigField("String", "CERT_PINS", "\"$certPins\"")
@@ -73,18 +73,9 @@ android {
         }
     }
 
-    flavorDimensions += listOf("role", "env")
+    // One app containing both the shareholder and the admin portal.
+    flavorDimensions += listOf("env")
     productFlavors {
-        create("user") {
-            dimension = "role"
-            applicationId = "net.rapti.resoshare"
-            buildConfigField("boolean", "IS_ADMIN", "false")
-        }
-        create("admin") {
-            dimension = "role"
-            applicationId = "net.rapti.resoshare.admin"
-            buildConfigField("boolean", "IS_ADMIN", "true")
-        }
         create("live") {
             dimension = "env"
             buildConfigField("boolean", "DEMO", "false")
@@ -175,6 +166,9 @@ dependencies {
     implementation("androidx.navigation:navigation-compose:2.8.5")
     implementation("androidx.core:core-splashscreen:1.0.1")
     implementation("androidx.biometric:biometric:1.1.0")
+    // Installs the Compose/AndroidX baseline profiles on sideloaded APKs (AOT-compiled hot paths
+    // → smooth scrolling from the first launch instead of janky JIT warm-up).
+    implementation("androidx.profileinstaller:profileinstaller:1.4.1")
 
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.9.0")
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.7.3")
