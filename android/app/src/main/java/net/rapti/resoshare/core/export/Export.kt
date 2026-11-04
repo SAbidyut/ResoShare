@@ -41,7 +41,7 @@ object Exporter {
     fun safeCell(v: String): String = if (v.isNotEmpty() && v[0] in "=+-@\t\r") "'$v" else v
 
     fun csv(report: Report): ExportFile {
-        val sb = StringBuilder("﻿") // BOM so Excel shows Bangla correctly
+        val sb = StringBuilder("\uFEFF") // BOM so Excel shows Bangla correctly
         fun line(cells: List<String>) = cells.joinToString(",") { c ->
             val v = safeCell(c)
             if (v.any { it == ',' || it == '"' || it == '\n' || it == '\r' }) "\"" + v.replace("\"", "\"\"") + "\"" else v
