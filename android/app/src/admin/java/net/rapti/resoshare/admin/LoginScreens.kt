@@ -155,7 +155,9 @@ private fun PasswordStep(email: String, onEmail: (String) -> Unit, onMfa: (Admin
             Icon(ResoIcons.Lock, null, tint = c.text, modifier = Modifier.size(22.dp))
             T("লগইনের পর আপনার মোবাইলের Authenticator অ্যাপ থেকে ৬ অঙ্কের OTP দিতে হবে (২-ধাপ যাচাই)।", 14.sp, color = c.textSoft, lineHeight = 22.sp)
         }
-        AnimatedVisibility(error != null) { InfoBox(error ?: "", tone = Tone.DANGER) }
+        AnimatedVisibility(error != null) {
+            InfoBox((error ?: "") + "\nবারবার ভুল চেষ্টা করলে নিরাপত্তার জন্য কিছুক্ষণ লগইন বন্ধ থাকে। প্রয়োজনে একজন সুপার অ্যাডমিনকে লক খুলতে বলুন।", tone = Tone.DANGER)
+        }
         if (Graph.isDemo) {
             InfoBox("ডেমো লগইন: admin@rapti.net · পাসওয়ার্ড Demo@1234 · OTP ১২৩৪৫৬", title = "ডেমো সংস্করণ", tone = Tone.CASH)
         }

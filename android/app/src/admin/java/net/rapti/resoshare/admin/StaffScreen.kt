@@ -279,6 +279,9 @@ private fun StaffSheet(s: Staff, roles: List<Role>, onDismiss: () -> Unit, onCha
                 }, loading = action.busy)
                 RowDivider()
                 SecondaryButton("পাসওয়ার্ড ও OTP রিসেট", { confirmReset = true }, height = 50.dp, icon = ResoIcons.Key)
+                SecondaryButton("লগইন লক খুলুন", {
+                    action.run({ Graph.adminApi.unlockStaff(s.id) }) { Toaster.show("${s.name}-এর লগইন লক খোলা হয়েছে") }
+                }, height = 50.dp, icon = ResoIcons.Lock, loading = action.busy)
                 if (s.status == "active") DangerButton("স্টাফ নিষ্ক্রিয় করুন", { confirmStatus = true })
                 else InkButton("স্টাফ আবার সক্রিয় করুন", { confirmStatus = true })
             }

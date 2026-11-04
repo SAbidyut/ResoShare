@@ -123,6 +123,7 @@ interface AdminApi {
     @POST("api/v1/admin/staff") suspend fun createStaff(@Body body: StaffCreate): StaffCreated
     @PATCH("api/v1/admin/staff/{id}") suspend fun patchStaff(@Path("id") id: String, @Body body: StaffPatch): Staff
     @POST("api/v1/admin/staff/{id}/reset") suspend fun resetStaff(@Path("id") id: String): TempPassword
+    @POST("api/v1/admin/staff/{id}/unlock") suspend fun unlockStaff(@Path("id") id: String)
     @POST("api/v1/admin/roles") suspend fun createRole(@Body body: RoleCreate): Role
     @PATCH("api/v1/admin/roles/{id}") suspend fun patchRole(@Path("id") id: String, @Body body: RolePatch): Role
 

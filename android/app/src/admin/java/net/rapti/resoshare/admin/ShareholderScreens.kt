@@ -106,7 +106,7 @@ fun ShareholdersScreen(an: AdminNav) {
         onRefresh = { pager.refresh() },
         spacing = 0.dp,
     ) {
-        item("search") { SearchField(query, { query = it }, "নাম, মোবাইল বা ID দিয়ে খুঁজুন") }
+        item("search") { SearchField(query, { query = it }, "নাম, ID বা পুরো মোবাইল নম্বর দিয়ে খুঁজুন") }
         item("filters") { FilterPills(STATUS_LABELS, filter, { filter = it }, Modifier.padding(vertical = 14.dp)) }
         pagedItems(pager, if (debounced.isBlank()) "কোনো শেয়ারহোল্ডার নেই" else "“$debounced” দিয়ে কাউকে পাওয়া যায়নি", { it.id }) { row, first, last ->
             HolderRow(row, first, last) { an.go(Routes.holder(row.id)) }

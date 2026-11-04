@@ -131,7 +131,7 @@ fun LoginScreen(nav: NavHostController) {
             }
             Field("মোবাইল নম্বর বা ইমেইল", id, { id = it; error = null }, placeholder = "০১৭XXXXXXXX", keyboard = KeyboardType.Email, maxLength = 254)
             Field("পাসওয়ার্ড", pass, { pass = it; error = null }, placeholder = "আপনার পাসওয়ার্ড", password = true, ime = ImeAction.Done, onDone = ::submit, maxLength = 128)
-            if (error != null) InfoBox(error!!, tone = Tone.DANGER)
+            if (error != null) InfoBox(error!! + "\nবারবার ভুল দিলে নিরাপত্তার জন্য কিছুক্ষণ লগইন বন্ধ থাকে। পাসওয়ার্ড মনে না থাকলে হটলাইনে যোগাযোগ করুন।", tone = Tone.DANGER)
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
                 LinkText("পাসওয়ার্ড ভুলে গেছেন?", { nav.navigate(Routes.FORGOT) })
             }

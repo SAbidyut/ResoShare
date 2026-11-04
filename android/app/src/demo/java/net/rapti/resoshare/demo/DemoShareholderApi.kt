@@ -99,9 +99,9 @@ class DemoShareholderApi : ShareholderApi {
                 .firstOrNull()?.let { throw ApiException("INVALID_INPUT", it, 400) }
             if (!d.acceptRules) throw ApiException("INVALID_INPUT", "নিয়ম ও রেগুলেশন মানতে হবে", 400)
             validateNominees(d.nominees)
-            if (s.users.any { it.mobile == mobile }) throw ApiException("CONFLICT", "এই মোবাইল নম্বরে আগেই রেজিস্ট্রেশন হয়েছে", 409, mapOf("mobile" to "ইতোমধ্যে নিবন্ধিত"))
-            if (s.users.any { it.email.equals(d.email.trim(), true) }) throw ApiException("CONFLICT", "এই ইমেইলে আগেই রেজিস্ট্রেশন হয়েছে", 409, mapOf("email" to "ইতোমধ্যে নিবন্ধিত"))
-            if (s.users.any { it.nid == V.digitsOnly(d.nidNumber) }) throw ApiException("CONFLICT", "এই NID দিয়ে আগেই রেজিস্ট্রেশন হয়েছে", 409)
+            if (s.users.any { it.mobile == mobile || it.email.equals(d.email.trim(), true) || it.nid == V.digitsOnly(d.nidNumber) }) {
+                throw ApiException("CONFLICT", "এই মোবাইল, ইমেইল বা NID দিয়ে আগেই রেজিস্ট্রেশন হয়েছে", 409)
+            }
             val u = DemoStore.DUser(
                 s.uuid(), s.newUserNo(), d.fullName.trim(), mobile, d.email.trim().lowercase(), d.password, V.digitsOnly(d.nidNumber),
                 LocalDate.parse(d.dob), "pending", null, "active", s.now(),

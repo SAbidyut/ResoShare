@@ -163,7 +163,7 @@ private fun RecipientPicker(selected: MutableMap<String, String>, onDismiss: () 
                 T("প্রাপক বাছাই করুন", 18.sp, FontWeight.Bold, modifier = Modifier.weight(1f))
                 T("${Bn.num(selected.size)} জন", 14.sp, FontWeight.Bold, c.ink)
             }
-            SearchField(query, { query = it }, "নাম, মোবাইল বা ID")
+            SearchField(query, { query = it }, "নাম, ID বা পুরো মোবাইল নম্বর")
             Box(Modifier.fillMaxWidth().heightIn(min = 200.dp, max = 420.dp)) {
                 when (val s = results) {
                     is Load.Loading -> CircularProgressIndicator(Modifier.align(Alignment.Center).size(28.dp), color = c.ink)

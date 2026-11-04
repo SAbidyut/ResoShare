@@ -187,7 +187,7 @@ class DemoAdminApi : AdminApi {
             }
         }.filter {
             query.isEmpty() || it.name.lowercase().contains(query) || it.shareholderNo.lowercase().contains(asciiQ) ||
-                it.mobile.contains(V.normalizeMobile(asciiQ).ifEmpty { "#" })
+                it.mobile == V.normalizeMobile(asciiQ) || it.email.equals(query, ignoreCase = true)
         }.sortedByDescending { s.sharesOf(it) }
         ShareholderPage(list.map(::row), s.users.size, null)
     }
@@ -542,6 +542,12 @@ class DemoAdminApi : AdminApi {
         s.staff[i] = s.staff[i].copy(mfaEnrolled = false)
         s.log(st.name, "staff", "স্টাফ “${s.staff[i].name}”-এর পাসওয়ার্ড ও OTP রিসেট", "warn")
         TempPassword(p)
+    }
+
+    override suspend fun unlockStaff(id: String) = op {
+        val st = need(Perm.SETTINGS)
+        val x = s.staff.firstOrNull { it.id == id } ?: throw ApiException("NOT_FOUND", "স্টাফ পাওয়া যায়নি", 404)
+        s.log(st.name, "staff", "স্টাফ “${x.name}”-এর লগইন লক খোলা হয়েছে", "warn")
     }
 
     override suspend fun createRole(body: RoleCreate): Role = op {
