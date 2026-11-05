@@ -40,13 +40,12 @@ import net.rapti.resoshare.core.ui.DemoBadge
 import net.rapti.resoshare.core.ui.MenuRow
 import net.rapti.resoshare.core.ui.ResoIcons
 import net.rapti.resoshare.core.ui.RowDivider
-import net.rapti.resoshare.core.ui.SegmentedTabs
 import net.rapti.resoshare.core.ui.T
+import net.rapti.resoshare.core.ui.ThemePicker
 import net.rapti.resoshare.core.ui.Tag
 import net.rapti.resoshare.core.ui.ToggleRow
 import net.rapti.resoshare.core.ui.theme.Brand
 import net.rapti.resoshare.core.ui.theme.Reso
-import net.rapti.resoshare.core.ui.theme.ThemeMode
 import net.rapti.resoshare.data.api.Perm
 
 private data class MenuEntry(val icon: ImageVector, val title: String, val route: String, val badge: String? = null)
@@ -143,11 +142,10 @@ private fun AppSection() {
             verticalArrangement = Arrangement.spacedBy(10.dp),
         ) {
             T(t("থিম", "Theme"), 16.sp, FontWeight.Bold)
-            SegmentedTabs(listOf(t("সিস্টেম", "System"), t("লাইট", "Light"), t("ডার্ক", "Dark")), mode.ordinal, { i ->
-                val m = ThemeMode.entries[i]
+            ThemePicker(mode) { m ->
                 Graph.themeMode.value = m
                 Graph.prefs.themeMode = m
-            })
+            }
             RowDivider(Modifier.padding(vertical = 4.dp))
             T(t("ভাষা", "Language"), 16.sp, FontWeight.Bold)
             LangPills()

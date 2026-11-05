@@ -30,6 +30,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import net.rapti.resoshare.Graph
+import net.rapti.resoshare.core.ui.LiveDot
+import net.rapti.resoshare.core.ui.shine
 import net.rapti.resoshare.core.ui.headerBubble
 import net.rapti.resoshare.core.format.Bn
 import net.rapti.resoshare.core.ui.BrandLogo
@@ -89,11 +91,14 @@ fun DashboardScreen(an: AdminNav) {
                     CircleIconButton(ResoIcons.Bell, t("নোটিশ ও বার্তা", "Notices & messages"), { an.go(Routes.NOTICES) })
                 }
                 Row(
-                    Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).background(c.headerChip).padding(horizontal = 18.dp, vertical = 16.dp),
+                    Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).background(c.headerChip).shine(strength = 0.10f).padding(horizontal = 18.dp, vertical = 16.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     Column(Modifier.weight(1f)) {
-                        T(t("আজকের শেয়ার রেট", "Today's share rate"), 14.sp, color = Brand.HeaderMuted)
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            T(t("আজকের শেয়ার রেট", "Today's share rate"), 14.sp, color = Brand.HeaderMuted)
+                            LiveDot(Brand.Mint, 6.dp, Modifier.padding(start = 4.dp))
+                        }
                         val rate = animatedLong(d?.today?.ratePaisa ?: 0L)
                         T(if (d == null) "—" else Bn.money(rate), 30.sp, FontWeight.Bold, Brand.Gold, maxLines = 1)
                     }

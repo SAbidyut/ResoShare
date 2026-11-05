@@ -60,6 +60,10 @@ import net.rapti.resoshare.Graph
 import net.rapti.resoshare.Toaster
 import net.rapti.resoshare.core.format.Bn
 import net.rapti.resoshare.core.i18n.t
+import net.rapti.resoshare.core.ui.LiveDot
+import net.rapti.resoshare.core.ui.enter
+import net.rapti.resoshare.core.ui.rememberEntrance
+import net.rapti.resoshare.core.ui.shine
 import net.rapti.resoshare.core.ui.Bubble
 import net.rapti.resoshare.core.ui.CircleIconButton
 import net.rapti.resoshare.core.ui.ErrorBlock
@@ -125,6 +129,7 @@ private fun HomeContent(nav: NavHostController, d: Dashboard) {
     val week by UserRepo.week.collectAsState()
     val notices by UserRepo.notices.collectAsState()
     val orders by UserRepo.orders.collectAsState()
+    val e = rememberEntrance()
 
     LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 28.dp)) {
         item(key = "header", contentType = "header") {
@@ -158,16 +163,16 @@ private fun HomeContent(nav: NavHostController, d: Dashboard) {
                 Modifier.fillMaxWidth()
                     .drawBehind { drawRect(c.header, size = Size(size.width, 52.dp.toPx())) }
                     .padding(horizontal = 20.dp),
-            ) { RateCard(d, week, nav) }
+            ) { Box(Modifier.enter(e, 0, 18.dp)) { RateCard(d, week, nav) } }
         }
         // Separate lazy items: only what is on screen gets composed, the rest is
         // prefetched while scrolling (one giant item made the first frame heavy).
         val pad = Modifier.padding(start = 20.dp, end = 20.dp, top = 14.dp)
         if (d.me.accountStatus == "suspended" || d.me.kycStatus != "verified") {
-            item(key = "kyc", contentType = "banner") { Box(pad) { KycBanner(nav, d) } }
+            item(key = "kyc", contentType = "banner") { Box(pad.enter(e, 1)) { KycBanner(nav, d) } }
         }
         item(key = "totals", contentType = "totals") {
-            Row(pad, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            Row(pad.enter(e, 2), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 GradientCard(c.shares, Modifier.weight(1f)) {
                     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         IconDisc(ResoIcons.Layers, c.ink, c.onInk)
@@ -189,9 +194,9 @@ private fun HomeContent(nav: NavHostController, d: Dashboard) {
                 }
             }
         }
-        item(key = "sell", contentType = "sell") { Box(pad) { SellCard(d, hide) { nav.tab(Routes.PROFILE) } } }
+        item(key = "sell", contentType = "sell") { Box(pad.enter(e, 3)) { SellCard(d, hide) { nav.tab(Routes.PROFILE) } } }
         item(key = "actions", contentType = "actions") {
-            Row(pad, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            Row(pad.enter(e, 4), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 QuickAction(t("শেয়ার কিনুন", "Buy"), ResoIcons.Plus, Brand.Navy, Color.White.copy(alpha = 0.45f), primary = true, Modifier.weight(1f)) {
                     nav.navigate(Routes.BUY) { launchSingleTop = true }
                 }
@@ -200,9 +205,9 @@ private fun HomeContent(nav: NavHostController, d: Dashboard) {
                 QuickAction(t("নিয়ম-কানুন", "Rules"), ResoIcons.Shield, c.brown, c.warnBg, false, Modifier.weight(1f)) { nav.navigate(Routes.RULES) }
             }
         }
-        item(key = "goal", contentType = "goal") { Box(pad) { GoalCard(d.holding.shares, hide) } }
-        item(key = "notices", contentType = "notices") { Box(pad) { NoticeBoard(notices, onAll = { nav.tab(Routes.NOTICES) }) } }
-        item(key = "orders", contentType = "orders") { Box(pad) { RecentOrders(orders ?: d.recentOrders, hide) { nav.navigate(Routes.ORDERS) } } }
+        item(key = "goal", contentType = "goal") { Box(pad.enter(e, 5)) { GoalCard(d.holding.shares, hide) } }
+        item(key = "notices", contentType = "notices") { Box(pad.enter(e, 6)) { NoticeBoard(notices, onAll = { nav.tab(Routes.NOTICES) }) } }
+        item(key = "orders", contentType = "orders") { Box(pad.enter(e, 7)) { RecentOrders(orders ?: d.recentOrders, hide) { nav.navigate(Routes.ORDERS) } } }
     }
 }
 
@@ -232,7 +237,9 @@ private fun RateCard(d: Dashboard, week: List<ChartPoint>?, nav: NavHostControll
             Row(verticalAlignment = Alignment.CenterVertically) {
                 TextDisc("৳", Brand.Amber, Brand.Navy, 34.dp, 18.sp)
                 Spacer(Modifier.width(10.dp))
-                T(t("আজকের রেট", "Today's rate"), 16.sp, FontWeight.Bold, g.label, modifier = Modifier.weight(1f))
+                T(t("আজকের রেট", "Today's rate"), 16.sp, FontWeight.Bold, g.label)
+                LiveDot(c.green, 7.dp, Modifier.padding(start = 4.dp))
+                Spacer(Modifier.weight(1f))
                 Box(Modifier.clip(RoundedCornerShape(12.dp)).background(Brand.Navy).padding(horizontal = 10.dp, vertical = 4.dp)) {
                     T(t("আজ", "Today") + " · " + Bn.dayMonth(Bn.parseDate(d.today.date) ?: Bn.today()), 12.sp, FontWeight.Bold, Brand.Gold, maxLines = 1)
                 }
@@ -305,7 +312,8 @@ private fun SellCard(d: Dashboard, hide: Boolean, onClick: () -> Unit) {
     Box(
         Modifier.fillMaxWidth().clip(RoundedCornerShape(20.dp))
             .background(Brush.linearGradient(listOf(Brand.Navy, Brand.NavyMid, Brand.NavyLight)))
-            .pressable(onClick = onClick),
+            .pressable(onClick = onClick)
+            .shine(),
     ) {
         Bubble(130.dp, Color.White.copy(alpha = 0.06f), Modifier.align(Alignment.TopEnd).offset(x = 36.dp, y = (-40).dp))
         Row(Modifier.padding(18.dp), verticalAlignment = Alignment.CenterVertically) {

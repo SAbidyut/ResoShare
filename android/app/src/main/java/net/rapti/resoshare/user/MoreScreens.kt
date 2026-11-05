@@ -71,6 +71,7 @@ import net.rapti.resoshare.core.i18n.t
 import net.rapti.resoshare.core.net.AppJson
 import net.rapti.resoshare.core.net.Res
 import net.rapti.resoshare.core.net.call
+import net.rapti.resoshare.core.ui.EnterLazyColumn
 import net.rapti.resoshare.core.ui.BrandLogo
 import net.rapti.resoshare.core.ui.ConfirmDialog
 import net.rapti.resoshare.core.ui.EmptyBlock
@@ -143,7 +144,7 @@ fun CertificateScreen(nav: NavHostController) {
         when (val s = state) {
             Load.Loading -> LoadingBlock()
             is Load.Failed -> ErrorBlock(s.message, onRetry = { scope.launch { load() } })
-            is Load.Ready -> LazyColumn(contentPadding = PaddingValues(20.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
+            is Load.Ready -> EnterLazyColumn(contentPadding = PaddingValues(20.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
                 item(key = "card") { CertificateCard(s.data) }
                 item(key = "pdf") {
                     PrimaryButton(t("PDF ডাউনলোড করুন", "Download PDF"), {
@@ -300,7 +301,7 @@ fun NoticesScreen(nav: NavHostController) {
                             else -> true
                         }
                     }
-                    LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    EnterLazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                         item(key = "hdr") {
                             Row(verticalAlignment = Alignment.CenterVertically) {
                                 T(t("কোম্পানির বার্তা শুধু এই অ্যাপেই আসে", "Company messages come only in this app"), 13.sp, color = c.muted, modifier = Modifier.weight(1f))
@@ -388,7 +389,7 @@ fun RulesScreen(nav: NavHostController) {
         when (val s = state) {
             Load.Loading -> LoadingBlock()
             is Load.Failed -> ErrorBlock(s.message, onRetry = { scope.launch { load() } })
-            is Load.Ready -> LazyColumn(contentPadding = PaddingValues(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            is Load.Ready -> EnterLazyColumn(contentPadding = PaddingValues(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 item(key = "intro") {
                     T(t("Resonance Automation এর শেয়ার কেনা, রাখা ও বেচার নিয়মগুলো এখানে আছে। শেয়ার কেনার আগে একবার দেখে নিন।",
                         "These are Resonance Automation's rules for buying, holding and selling shares. Please read them before buying."), 15.sp, color = c.textSoft)
@@ -468,7 +469,7 @@ fun OrdersScreen(nav: NavHostController) {
     Column(Modifier.fillMaxSize()) {
         ScreenHeader(t("লেনদেন", "Transactions"), onBack = { nav.popBackStack() })
         Refreshable(refreshing, { scope.launch { refreshing = true; load(); refreshing = false } }) {
-            LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            EnterLazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 item(key = "filters") {
                     FilterPills(listOf(t("সব", "All"), t("নিশ্চিত", "Confirmed"), t("যাচাই চলছে", "Verifying"), t("বাতিল", "Cancelled")), filter, { filter = it })
                 }

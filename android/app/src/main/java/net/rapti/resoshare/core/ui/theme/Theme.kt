@@ -150,6 +150,45 @@ private val DarkColors = ResoColors(
     chartGrid = Color(0xFF223049),
 )
 
+/** True-black (AMOLED) variant of the dark theme: black canvas, near-black cards, amber accents. */
+private val BlackColors = DarkColors.copy(
+    bg = Color(0xFF000000),
+    surface = Color(0xFF0C0C0F),
+    surfaceAlt = Color(0xFF131317),
+    track = Color(0xFF1D1D23),
+    border = Color(0xFF1B1B21),
+    inputBorder = Color(0xFF2E2E37),
+    text = Color(0xFFF1F1F4),
+    textSoft = Color(0xFFCACAD2),
+    muted = Color(0xFF8E8E9A),
+    header = Color(0xFF000000),
+    headerChip = Color(0xFF17171D),
+    successBg = Color(0xFF0A1F16),
+    warnBg = Color(0xFF231A07),
+    dangerBg = Color(0xFF260E10),
+    infoBg = Color(0xFF111319),
+    infoBorder = Color(0xFF262A36),
+    cashBg = Color(0xFF1A1509),
+    cashBorder = Color(0xFF3A2F12),
+    tagBlueBg = Color(0xFF151925),
+    tagBlueText = Color(0xFFB9C6E6),
+    rate = Gradient(Color(0xFF1C1405), Color(0xFF332409), Color(0xFF4A3712), Color(0xFFF8D28A), Color(0xFFFFF4DB)),
+    shares = Gradient(Color(0xFF0B0F1C), Color(0xFF141B33), Color(0xFF232D4C), Color(0xFFB4C8F2), Color(0xFFEFF4FF)),
+    paid = Gradient(Color(0xFF06150D), Color(0xFF0C281A), Color(0xFF173B2B), Color(0xFF9BE3BF), Color(0xFFE2FBEE)),
+    rules = Gradient(Color(0xFF1A1407), Color(0xFF2B210B), Color(0xFF4A3817), Color(0xFFF5C46B), Color(0xFFFFF1D2)),
+    segmentBg = Color(0xFF141419),
+    chartFill = Color(0x2EF5A524),
+    chartGrid = Color(0xFF1D1D23),
+)
+
+/** Palette of a theme mode (SYSTEM resolves with [systemDark]); used by the theme picker previews. */
+fun paletteOf(mode: ThemeMode, systemDark: Boolean): ResoColors = when (mode) {
+    ThemeMode.SYSTEM -> if (systemDark) DarkColors else LightColors
+    ThemeMode.LIGHT -> LightColors
+    ThemeMode.DARK -> DarkColors
+    ThemeMode.BLACK -> BlackColors
+}
+
 val LocalReso = staticCompositionLocalOf { LightColors }
 
 object Reso {
@@ -183,16 +222,12 @@ private val ResoTypography = Typography(
     labelSmall = style(12, FontWeight.Bold),
 )
 
-enum class ThemeMode { SYSTEM, LIGHT, DARK }
+enum class ThemeMode { SYSTEM, LIGHT, DARK, BLACK }
 
 @Composable
 fun ResoTheme(mode: ThemeMode = ThemeMode.SYSTEM, content: @Composable () -> Unit) {
-    val dark = when (mode) {
-        ThemeMode.SYSTEM -> isSystemInDarkTheme()
-        ThemeMode.LIGHT -> false
-        ThemeMode.DARK -> true
-    }
-    val c = if (dark) DarkColors else LightColors
+    val c = paletteOf(mode, isSystemInDarkTheme())
+    val dark = c.dark
     val scheme = if (dark) {
         darkColorScheme(
             primary = Brand.Amber, onPrimary = Brand.Navy,

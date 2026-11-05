@@ -19,7 +19,7 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsFocusedAsState
-import androidx.compose.foundation.interaction.collectIsPressedAsState
+import androidx.compose.foundation.interaction.PressInteraction
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
@@ -97,6 +97,7 @@ import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.DialogProperties
+import kotlinx.coroutines.launch
 import net.rapti.resoshare.core.format.Bn
 import net.rapti.resoshare.core.i18n.t
 import net.rapti.resoshare.core.ui.theme.Brand
@@ -134,12 +135,21 @@ fun T(
 @Composable
 fun Modifier.pressable(enabled: Boolean = true, onClick: () -> Unit, role: Role = Role.Button): Modifier {
     val source = remember { MutableInteractionSource() }
-    val pressed by source.collectIsPressedAsState()
-    val s by animateFloatAsState(if (pressed && enabled) 0.97f else 1f, spring(stiffness = Spring.StiffnessMedium), label = "press")
+    val scale = remember { Animatable(1f) }
+    // Press state is collected in a coroutine (not as composition state), and the scale is
+    // read only in the layer block: pressing or starting a scroll on a card never recomposes it.
+    LaunchedEffect(source, enabled) {
+        source.interactions.collect { i ->
+            val target = when (i) {
+                is PressInteraction.Press -> if (enabled) 0.965f else 1f
+                is PressInteraction.Release, is PressInteraction.Cancel -> 1f
+                else -> return@collect
+            }
+            launch { scale.animateTo(target, spring(dampingRatio = 0.6f, stiffness = Spring.StiffnessMedium)) }
+        }
+    }
     return this
-        // Read the animated value in the layer block: the press animation only re-draws,
-        // it never recomposes or re-measures the card (keeps scrolling smooth).
-        .graphicsLayer { scaleX = s; scaleY = s }
+        .graphicsLayer { scaleX = scale.value; scaleY = scale.value }
         .clickable(interactionSource = source, indication = androidx.compose.material3.ripple(), enabled = enabled, role = role, onClick = onClick)
 }
 
@@ -181,6 +191,9 @@ fun ScreenHeader(
 fun Modifier.headerBubble(): Modifier = this.drawBehind {
     val r = size.width * 0.32f
     drawCircle(Color.White.copy(alpha = 0.06f), radius = r, center = androidx.compose.ui.geometry.Offset(size.width - r * 0.35f, r * 0.15f))
+    val gr = size.width * 0.42f
+    val gc = androidx.compose.ui.geometry.Offset(size.width * 0.08f, size.height + gr * 0.25f)
+    drawCircle(Brush.radialGradient(listOf(Brand.Amber.copy(alpha = 0.10f), Color.Transparent), center = gc, radius = gr), radius = gr, center = gc)
 }
 
 @Composable
@@ -223,7 +236,7 @@ fun CircleIconButton(
 
 @Composable
 fun HeaderPill(text: String, bg: Color = Reso.colors.headerChip, fg: Color = Brand.Gold) {
-    Box(Modifier.clip(RoundedCornerShape(16.dp)).background(bg).padding(horizontal = 12.dp, vertical = 5.dp)) {
+    Box(Modifier.background(bg, RoundedCornerShape(16.dp)).padding(horizontal = 12.dp, vertical = 5.dp)) {
         T(text, 13.sp, FontWeight.Bold, fg, maxLines = 1)
     }
 }
@@ -232,7 +245,7 @@ fun HeaderPill(text: String, bg: Color = Reso.colors.headerChip, fg: Color = Bra
 @Composable
 fun HeaderStat(label: String, value: String, modifier: Modifier = Modifier) {
     Column(
-        modifier.clip(RoundedCornerShape(14.dp)).background(Reso.colors.headerChip).padding(horizontal = 14.dp, vertical = 10.dp),
+        modifier.background(Reso.colors.headerChip, RoundedCornerShape(14.dp)).padding(horizontal = 14.dp, vertical = 10.dp),
     ) {
         T(label, 13.sp, color = Brand.HeaderMuted, maxLines = 1)
         T(value, 18.sp, FontWeight.Bold, Brand.Gold, maxLines = 1)
@@ -255,8 +268,8 @@ fun ResoCard(
     Column(
         modifier
             .fillMaxWidth()
-            .clip(shape)
-            .background(bg)
+            .then(if (onClick != null) Modifier.clip(shape) else Modifier)
+            .background(bg, shape)
             .border(1.dp, border, shape)
             .then(if (onClick != null) Modifier.pressable(onClick = onClick) else Modifier)
             .padding(padding),
@@ -276,8 +289,8 @@ fun GradientCard(
     val shape = RoundedCornerShape(radius)
     Column(
         modifier
-            .clip(shape)
-            .background(Brush.linearGradient(listOf(g.start, g.end)))
+            .then(if (onClick != null) Modifier.clip(shape) else Modifier)
+            .background(Brush.linearGradient(listOf(g.start, g.end)), shape)
             .border(1.dp, g.border, shape)
             .then(if (onClick != null) Modifier.pressable(onClick = onClick) else Modifier)
             .padding(padding),
@@ -288,7 +301,7 @@ fun GradientCard(
 /** Decorative translucent circle used on hero cards. */
 @Composable
 fun Bubble(size: Dp, color: Color, modifier: Modifier = Modifier) {
-    Box(modifier.size(size).clip(CircleShape).background(color))
+    Box(modifier.size(size).background(color, CircleShape))
 }
 
 @Composable
@@ -298,14 +311,14 @@ fun RowDivider(modifier: Modifier = Modifier) {
 
 @Composable
 fun IconDisc(icon: ImageVector, bg: Color, fg: Color, size: Dp = 32.dp, iconSize: Dp = 18.dp) {
-    Box(Modifier.size(size).clip(CircleShape).background(bg), contentAlignment = Alignment.Center) {
+    Box(Modifier.size(size).background(bg, CircleShape), contentAlignment = Alignment.Center) {
         Icon(icon, null, tint = fg, modifier = Modifier.size(iconSize))
     }
 }
 
 @Composable
 fun TextDisc(text: String, bg: Color, fg: Color, size: Dp = 32.dp, textSize: TextUnit = 16.sp) {
-    Box(Modifier.size(size).clip(CircleShape).background(bg), contentAlignment = Alignment.Center) {
+    Box(Modifier.size(size).background(bg, CircleShape), contentAlignment = Alignment.Center) {
         T(text, textSize, FontWeight.Bold, fg, lineHeight = textSize * 1.2f)
     }
 }
@@ -670,7 +683,7 @@ fun SearchField(value: String, onChange: (String) -> Unit, placeholder: String) 
 
 @Composable
 fun Tag(text: String, bg: Color, fg: Color, modifier: Modifier = Modifier, size: TextUnit = 12.sp) {
-    Box(modifier.clip(RoundedCornerShape(12.dp)).background(bg).padding(horizontal = 10.dp, vertical = 3.dp)) {
+    Box(modifier.background(bg, RoundedCornerShape(12.dp)).padding(horizontal = 10.dp, vertical = 3.dp)) {
         T(text, size, FontWeight.Bold, fg, maxLines = 1)
     }
 }
@@ -985,6 +998,12 @@ private fun BarItem(item: NavItem, sel: Boolean, adminStyle: Boolean, modifier: 
             else -> c.warnBg
         }, tween(220), label = "pill",
     )
+    val pop = remember { Animatable(1f) }
+    var firstSel by remember { mutableStateOf(true) }
+    LaunchedEffect(sel) {
+        if (firstSel) { firstSel = false; return@LaunchedEffect }
+        if (sel) { pop.snapTo(0.78f); pop.animateTo(1f, spring(dampingRatio = 0.42f, stiffness = 520f)) }
+    }
     val iconColor = when {
         sel && adminStyle -> c.onInk
         sel -> c.ink
@@ -996,8 +1015,12 @@ private fun BarItem(item: NavItem, sel: Boolean, adminStyle: Boolean, modifier: 
         verticalArrangement = Arrangement.spacedBy(2.dp, Alignment.CenterVertically),
     ) {
         Box {
-            Box(Modifier.clip(RoundedCornerShape(16.dp)).background(pillBg).padding(horizontal = 16.dp, vertical = 4.dp)) {
-                Icon(item.icon, item.label, tint = iconColor, modifier = Modifier.size(24.dp))
+            Box(
+                Modifier
+                    .drawBehind { drawRoundRect(pillBg, cornerRadius = androidx.compose.ui.geometry.CornerRadius(16.dp.toPx())) }
+                    .padding(horizontal = 16.dp, vertical = 4.dp),
+            ) {
+                Icon(item.icon, item.label, tint = iconColor, modifier = Modifier.size(24.dp).graphicsLayer { scaleX = pop.value; scaleY = pop.value })
             }
             if (item.badge > 0) {
                 Box(

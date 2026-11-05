@@ -244,7 +244,7 @@ fun <P, T> LazyListScope.pagedItems(
             if (pager.items.isEmpty()) item("empty") { net.rapti.resoshare.core.ui.EmptyBlock(empty) }
             val n = pager.items.size
             itemsIndexed(pager.items, key = { _, it -> key(it) }, contentType = { _, _ -> "row" }) { i, it ->
-                Box(Modifier.animateItem()) { row(it, i == 0, i == n - 1) }
+                row(it, i == 0, i == n - 1)
             }
             if (pager.hasMore) item("more") {
                 LaunchedEffect(n) { pager.more() }
@@ -319,11 +319,12 @@ fun AdminScreen(
     Column(Modifier.fillMaxSize().background(Reso.colors.bg)) {
         header()
         val list = @Composable {
-            LazyColumn(
+            net.rapti.resoshare.core.ui.EnterLazyColumn(
                 Modifier.fillMaxSize(),
                 state = state,
                 contentPadding = PaddingValues(start = 20.dp, end = 20.dp, top = 16.dp, bottom = 28.dp),
                 verticalArrangement = Arrangement.spacedBy(spacing),
+                animateItems = true,
                 content = content,
             )
         }

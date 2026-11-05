@@ -2,8 +2,17 @@ package net.rapti.resoshare.user
 
 import android.content.Intent
 import android.net.Uri
-import androidx.compose.animation.animateColorAsState
-import androidx.compose.animation.core.tween
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.core.spring
+import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.ui.unit.IntOffset
+import net.rapti.resoshare.core.ui.EnterLazyColumn
+import net.rapti.resoshare.core.ui.LiveDot
+import net.rapti.resoshare.core.ui.enter
+import net.rapti.resoshare.core.ui.rememberEntrance
+import net.rapti.resoshare.core.ui.shine
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -22,7 +31,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Icon
@@ -81,6 +89,7 @@ import net.rapti.resoshare.core.ui.SectionTitle
 import net.rapti.resoshare.core.ui.SegmentedTabs
 import net.rapti.resoshare.core.ui.SplitBar
 import net.rapti.resoshare.core.ui.T
+import net.rapti.resoshare.core.ui.ThemePicker
 import net.rapti.resoshare.core.ui.Tag
 import net.rapti.resoshare.core.ui.TextDisc
 import net.rapti.resoshare.core.ui.ToggleRow
@@ -89,7 +98,6 @@ import net.rapti.resoshare.core.ui.methodLabel
 import net.rapti.resoshare.core.ui.pressable
 import net.rapti.resoshare.core.ui.theme.Brand
 import net.rapti.resoshare.core.ui.theme.Reso
-import net.rapti.resoshare.core.ui.theme.ThemeMode
 import net.rapti.resoshare.data.api.Dashboard
 import net.rapti.resoshare.data.api.PublicInfo
 
@@ -123,9 +131,11 @@ private fun ProfileContent(nav: NavHostController, d: Dashboard) {
     val unread by UserRepo.unread.collectAsState()
     val hide by UserRepo.hideAmounts.collectAsState()
     val orders by UserRepo.orders.collectAsState()
+    // Re-armed on each tab switch, so the new tab's cards glide in.
+    val e = rememberEntrance(tab)
 
     LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 28.dp)) {
-        item(key = "header") {
+        item(key = "header", contentType = "header") {
             Column(
                 Modifier.fillMaxWidth().background(c.header).statusBarsPadding().headerBubble()
                     .padding(start = 20.dp, end = 20.dp, top = 20.dp, bottom = 18.dp),
@@ -152,9 +162,11 @@ private fun ProfileContent(nav: NavHostController, d: Dashboard) {
             }
         }
         when (tab) {
-            0 -> item(key = "summary") {
-                Column(Modifier.padding(start = 20.dp, end = 20.dp, top = 18.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
-                    Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            0 -> {
+                // One lazy item per card: only what is on screen is composed (smooth first frame and scroll).
+                val pad = Modifier.padding(start = 20.dp, end = 20.dp, top = 14.dp)
+                item(key = "totals", contentType = "totals") {
+                    Row(Modifier.enter(e, 0).padding(start = 20.dp, end = 20.dp, top = 18.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                         GradientCard(c.shares, Modifier.weight(1f)) {
                             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                                 IconDisc(ResoIcons.Layers, c.ink, c.onInk)
@@ -175,7 +187,9 @@ private fun ProfileContent(nav: NavHostController, d: Dashboard) {
                             T(money(d.holding.paidPaisa, hide), 19.sp, FontWeight.Bold, c.paid.value, maxLines = 1, lineHeight = 36.sp)
                         }
                     }
-                    GradientCard(c.rate, Modifier.fillMaxWidth(), padding = PaddingValues(horizontal = 16.dp, vertical = 14.dp)) {
+                }
+                item(key = "rate", contentType = "rate") {
+                    GradientCard(c.rate, pad.enter(e, 1).fillMaxWidth(), padding = PaddingValues(horizontal = 16.dp, vertical = 14.dp)) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             TextDisc("৳", Brand.Amber, Brand.Navy, 32.dp, 18.sp)
                             Spacer(Modifier.width(10.dp))
@@ -186,7 +200,10 @@ private fun ProfileContent(nav: NavHostController, d: Dashboard) {
                             T(Bn.money(d.today.ratePaisa), 22.sp, FontWeight.Bold, c.rate.value)
                         }
                     }
-                    SellNowCard(d, hide)
+                }
+                item(key = "sell", contentType = "sell") { Box(pad.enter(e, 2)) { SellNowCard(d, hide) } }
+                item(key = "links", contentType = "links") {
+                  Column(pad.enter(e, 3), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                     T(t("দ্রুত লিংক", "Quick links"), 14.sp, FontWeight.Bold, c.muted)
                     ResoCard(padding = PaddingValues(0.dp)) {
                         QuickLink(ResoIcons.Bell, c.infoBg, c.ink, t("নোটিশ", "Notices"), t("কোম্পানির বার্তা ও রেটের খবর", "Company messages and rate news"),
@@ -212,6 +229,7 @@ private fun ProfileContent(nav: NavHostController, d: Dashboard) {
                             T(t("লগ আউট", "Log out"), 17.sp, FontWeight.Bold, c.red)
                         }
                     }
+                  }
                 }
             }
             1 -> {
@@ -224,8 +242,8 @@ private fun ProfileContent(nav: NavHostController, d: Dashboard) {
                 when {
                     confirmed == null -> item(key = "sharesLoading") { LoadingBlock() }
                     confirmed.isEmpty() -> item(key = "sharesEmpty") { EmptyBlock(t("নিশ্চিত হওয়া কোনো শেয়ার এখনো নেই।", "No confirmed shares yet."), ResoIcons.Layers) }
-                    else -> items(confirmed, key = { it.id }) { o ->
-                        Box(Modifier.padding(horizontal = 20.dp, vertical = 5.dp)) {
+                    else -> itemsIndexed(confirmed, key = { _, o -> o.id }, contentType = { _, _ -> "order" }) { i, o ->
+                        Box(Modifier.enter(e, i + 1).padding(horizontal = 20.dp, vertical = 5.dp)) {
                             ResoCard(padding = PaddingValues(horizontal = 16.dp, vertical = 12.dp)) {
                                 Row(verticalAlignment = Alignment.CenterVertically) {
                                     Column(Modifier.weight(1f)) {
@@ -240,7 +258,7 @@ private fun ProfileContent(nav: NavHostController, d: Dashboard) {
                 }
             }
             else -> item(key = "nominees") {
-                Column(Modifier.padding(start = 20.dp, end = 20.dp, top = 18.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                Column(Modifier.enter(e, 0).padding(start = 20.dp, end = 20.dp, top = 18.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                     NomineeCard(nav, d)
                 }
             }
@@ -257,14 +275,19 @@ private fun ProfileContent(nav: NavHostController, d: Dashboard) {
 @Composable
 private fun HeaderTabs(items: List<String>, selected: Int, onSelect: (Int) -> Unit) {
     val c = Reso.colors
-    Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).background(c.headerChip).padding(4.dp)) {
-        items.forEachIndexed { i, label ->
-            val sel = i == selected
-            val bg by animateColorAsState(if (sel) Brand.Amber else Color.Transparent, tween(200), label = "htab")
-            Box(
-                Modifier.weight(1f).height(44.dp).clip(RoundedCornerShape(12.dp)).background(bg).clickable(role = Role.Tab) { onSelect(i) },
-                contentAlignment = Alignment.Center,
-            ) { T(label, 15.sp, FontWeight.Bold, if (sel) Brand.Navy else Color.White, maxLines = 1) }
+    BoxWithConstraints(Modifier.fillMaxWidth().background(c.headerChip, RoundedCornerShape(16.dp)).padding(4.dp)) {
+        val w = maxWidth / items.size
+        // Amber pill slides between tabs; offset is read in the layout phase (no recomposition per frame).
+        val x by animateDpAsState(w * selected, spring(dampingRatio = 0.75f, stiffness = Spring.StiffnessMediumLow), label = "htab")
+        Box(Modifier.offset { IntOffset(x.roundToPx(), 0) }.width(w).height(44.dp).background(Brand.Amber, RoundedCornerShape(12.dp)))
+        Row(Modifier.fillMaxWidth()) {
+            items.forEachIndexed { i, label ->
+                val sel = i == selected
+                Box(
+                    Modifier.weight(1f).height(44.dp).clip(RoundedCornerShape(12.dp)).clickable(role = Role.Tab) { onSelect(i) },
+                    contentAlignment = Alignment.Center,
+                ) { T(label, 15.sp, FontWeight.Bold, if (sel) Brand.Navy else Color.White, maxLines = 1) }
+            }
         }
     }
 }
@@ -291,12 +314,14 @@ private fun SellNowCard(d: Dashboard, hide: Boolean) {
     val profit = d.holding.profitPaisa
     Box(
         Modifier.fillMaxWidth().clip(RoundedCornerShape(22.dp))
-            .background(Brush.linearGradient(listOf(Brand.Navy, Brand.NavyMid, Brand.NavyLight))),
+            .background(Brush.linearGradient(listOf(Brand.Navy, Brand.NavyMid, Brand.NavyLight)))
+            .shine(),
     ) {
         Bubble(170.dp, Brand.Amber.copy(alpha = 0.14f), Modifier.align(Alignment.TopEnd).offset(x = 40.dp, y = (-50).dp))
         Column(Modifier.padding(start = 18.dp, end = 18.dp, top = 18.dp, bottom = 18.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Tag(t("আজ বেচলে", "If sold today"), Brand.Amber, Brand.Navy)
+                LiveDot(Brand.Mint, 7.dp, Modifier.padding(start = 6.dp))
                 Spacer(Modifier.weight(1f))
                 Row(
                     Modifier.clip(RoundedCornerShape(16.dp)).background(Color.White.copy(alpha = 0.12f)).clickable { UserRepo.toggleHide() }
@@ -367,7 +392,7 @@ fun UserSettingsScreen(nav: NavHostController) {
     LaunchedEffect(Unit) { (call { Graph.shareholderApi.publicInfo() } as? Res.Ok)?.let { info = it.value } }
     Column(Modifier.fillMaxSize()) {
         ScreenHeader(t("সেটিংস", "Settings"), onBack = { nav.popBackStack() })
-        LazyColumn(contentPadding = PaddingValues(20.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
+        EnterLazyColumn(contentPadding = PaddingValues(20.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
             item(key = "lang") {
                 ResoCard {
                     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -386,10 +411,7 @@ fun UserSettingsScreen(nav: NavHostController) {
                     }
                     Spacer(Modifier.height(10.dp))
                     val mode by Graph.themeMode.collectAsState()
-                    SegmentedTabs(listOf(t("সিস্টেম", "System"), t("লাইট", "Light"), t("ডার্ক", "Dark")), mode.ordinal, { i ->
-                        val m = ThemeMode.entries[i]
-                        Graph.themeMode.value = m; Graph.prefs.themeMode = m
-                    })
+                    ThemePicker(mode) { m -> Graph.themeMode.value = m; Graph.prefs.themeMode = m }
                 }
             }
             item(key = "security") {

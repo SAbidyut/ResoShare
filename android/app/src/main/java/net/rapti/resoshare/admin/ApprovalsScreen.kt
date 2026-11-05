@@ -80,12 +80,12 @@ fun ApprovalsScreen() {
             if (tab == 0) {
                 if (payments.isEmpty()) item("pe") { EmptyBlock(t("কোনো পেমেন্ট অনুমোদনের অপেক্ষায় নেই", "No payments awaiting approval"), ResoIcons.CheckCircle) }
                 items(payments, key = { it.id }, contentType = { "pay" }) { o ->
-                    Box(Modifier.animateItem()) { PaymentCard(o) { decided(o.id) } }
+                    Box { PaymentCard(o) { decided(o.id) } }
                 }
             } else {
                 if (kyc.isEmpty()) item("ke") { EmptyBlock(t("কোনো KYC যাচাইয়ের অপেক্ষায় নেই", "No KYC awaiting review"), ResoIcons.Shield) }
                 items(kyc, key = { it.shareholderId }, contentType = { "kyc" }) { k ->
-                    Box(Modifier.animateItem()) {
+                    Box {
                         KycCard(k, onView = { id, kind -> viewer = id to "${k.fullName} · ${kycLabel(kind)}" }) { decided(k.shareholderId) }
                     }
                 }

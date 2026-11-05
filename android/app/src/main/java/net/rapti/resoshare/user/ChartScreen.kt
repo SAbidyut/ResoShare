@@ -11,7 +11,6 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -37,6 +36,7 @@ import net.rapti.resoshare.core.format.Bn
 import net.rapti.resoshare.core.i18n.t
 import net.rapti.resoshare.core.net.Res
 import net.rapti.resoshare.core.net.call
+import net.rapti.resoshare.core.ui.EnterLazyColumn
 import net.rapti.resoshare.core.ui.ChangeBars
 import net.rapti.resoshare.core.ui.ErrorBlock
 import net.rapti.resoshare.core.ui.LegendItem
@@ -89,7 +89,7 @@ fun ChartScreen(nav: NavHostController) {
                 }
             }
         }
-        LazyColumn(contentPadding = PaddingValues(start = 20.dp, end = 20.dp, top = 16.dp, bottom = 24.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
+        EnterLazyColumn(contentPadding = PaddingValues(start = 20.dp, end = 20.dp, top = 16.dp, bottom = 24.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
             item { SegmentedTabs(periodLabels(), tab, { tab = it }) }
             when (val s = state) {
                 is Load.Failed -> item { ErrorBlock(s.message, onRetry = { scope.launch { load(PERIODS[tab]) } }) }

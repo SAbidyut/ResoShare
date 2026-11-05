@@ -75,6 +75,8 @@ class UserScreensTest {
         shot("${name}_light")
         Graph.themeMode.value = ThemeMode.DARK
         shot("${name}_dark")
+        Graph.themeMode.value = ThemeMode.BLACK
+        shot("${name}_black")
         Graph.themeMode.value = ThemeMode.LIGHT
         settle()
     }
