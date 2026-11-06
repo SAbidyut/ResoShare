@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Resonance mark: an amber wave rising into an arrow (share value growing).
+     Centred and scaled to sit well inside the adaptive-icon safe zone. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp" android:height="108dp"
+    android:viewportWidth="108" android:viewportHeight="108">
+    <group android:pivotX="54" android:pivotY="54" android:scaleX="0.68" android:scaleY="0.68">
+        <path android:fillColor="#00000000" android:strokeColor="#FFF5A524" android:strokeWidth="9"
+            android:strokeLineCap="round" android:strokeLineJoin="round"
+            android:pathData="M25.5,71 C30.5,57 36.5,57 41.5,67 S52.5,77 57.5,63 S68.5,45 81.5,39" />
+        <path android:fillColor="#00000000" android:strokeColor="#FFF5A524" android:strokeWidth="9"
+            android:strokeLineCap="round" android:strokeLineJoin="round"
+            android:pathData="M69.5,37 L82.5,38.5 L78.5,51" />
+    </group>
+</vector>
