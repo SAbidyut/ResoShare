@@ -5,6 +5,8 @@ an admin Android app and a secure backend. UI in Bangla (Kalpurush font), light 
 
 **বাংলা নির্দেশিকা:** [docs/SETUP_BN.md](docs/SETUP_BN.md)
 
+**APK ডাউনলোড:** [Releases](https://github.com/SAbidyut/ResoShare/releases/latest) পেজে (অথবা `apk/` ফোল্ডারে)।
+
 | Path | What |
 |---|---|
 | `docs/API.md` | REST contract shared by the apps and the server |

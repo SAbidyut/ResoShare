@@ -1,0 +1,29 @@
+name: Release APK
+
+# Publishes the signed APKs committed under apk/ as a GitHub Release.
+# The APKs are signed locally with the release key; the key never goes to GitHub.
+on:
+  push:
+    branches: [main]
+    paths: ["apk/**"]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify checksums
+        working-directory: apk
+        run: sha256sum -c SHA256SUMS.txt
+      - name: Publish release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          v="v$(tr -d '[:space:]' < apk/VERSION)"
+          gh release delete "$v" --yes --cleanup-tag 2>/dev/null || true
+          gh release create "$v" apk/*.apk apk/SHA256SUMS.txt \
+            --title "ResoShare $v" --notes-file apk/NOTES.md --target "$GITHUB_SHA" --latest
