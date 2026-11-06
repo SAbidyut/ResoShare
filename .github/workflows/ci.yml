@@ -53,8 +53,12 @@ jobs:
           lintDemoDebug
           testDemoDebugUnitTest
           assembleDemoRelease assembleLiveRelease
+      # Screenshots only when something failed, kept briefly: a full upload on every push
+      # filled the account's artifact storage, and a full quota must not fail the build.
       - uses: actions/upload-artifact@v4
-        if: always()
+        if: failure()
+        continue-on-error: true
         with:
           name: screenshots
           path: android/app/build/screens
+          retention-days: 3
